@@ -1,6 +1,3 @@
-[submodule "src/wasm3nim/wasm3c"]
-	path = src/wasm3nim/wasm3c
-	url = https://github.com/wasm3/wasm3.git
 [submodule "src/wasm3/wasm3c"]
 	path = src/wasm3/wasm3c
 	url = https://github.com/wasm3/wasm3.git
