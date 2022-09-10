@@ -23,19 +23,5 @@ discard m3_FindFunction(multiplyFunc.addr, runtime, "multiply")
 check addFunc.m3GetFunctionName() == "add"
 check multiplyFunc.m3GetFunctionName() == "multiply"
 
-var
-  argData = [3i32, 4i32]
-  argPtrs = [argData[0].addr, argData[1].addr]
-  result = new int32
-
-
-echo addFunc.m3Call(uint32 argPtrs.len, cast[ptr pointer](argPtrs.addr))
-echo addFunc.m3_GetResults(1, cast[ptr pointer](result.addr))
-check result[] == 7
-
-
-
-echo multiplyFunc.m3Call(uint32 argPtrs.len, cast[ptr pointer](argPtrs.addr))
-echo multiplyFunc.m3_GetResults(1, cast[ptr pointer](result.addr))
-check result[] == 12
-
+check addFunc.call(int32, 3i32, 4i32) == 7i32
+check multiplyFunc.call(int32, 3i32, 4i32) == 12

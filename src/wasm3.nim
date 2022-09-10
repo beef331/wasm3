@@ -204,3 +204,70 @@ proc m3_PrintProfilerInfo*()
 proc m3_GetBacktrace*(i_runtime: PRuntime): IM3BacktraceInfo
 {.pop.}
 {.pop.}
+
+
+import std/[macros, genasts, typetraits, enumerate]
+
+
+
+type
+  WasmError* = object of CatchableError
+  WasmTypes* = int32 or uint32 or int64 or uint64 or float32 or float64
+
+proc wasmValidTuple*(t: typedesc[tuple]): bool =
+  result = true
+  for field in fields t():
+    when field isnot WasmTypes:
+      return false
+
+type
+  WasmTuple* = concept wasmt, type WT
+    WT is tuple
+    wasmValidTuple(WT)
+
+
+proc ptrArrayTo*(t: var WasmTypes): array[1, pointer] = [pointer(addr t)]
+
+proc ptrArrayTo*(t: var WasmTuple): auto =
+ result = default(array[tupleLen(t), pointer])
+ for i, x in enumerate t.fields:
+   result[i] = pointer(x.addr)
+
+template getResult*[T: WasmTuple or WasmTypes](theFunc: PFunction): untyped =
+  var
+    res: T
+    ptrArray = res.ptrArrayTo
+  let resultsResult = m3_GetResults(theFunc, uint32 ptrArray.len, cast[ptr pointer](ptrArray.addr))
+  if resultsResult != nil:
+    raise newException(WasmError, $resultsResult)
+  res
+
+
+
+
+macro call*(theFunc: PFunction, returnType: typedesc[WasmTuple or WasmTypes],  args: varargs[typed]): untyped =
+  result = newStmtList()
+  let arrVals = nnkBracket.newTree()
+  for arg in args:
+    let argName = genSym(nskVar)
+    result.add:
+      genast(argName, arg):
+        var argName = arg
+    arrVals.add:
+      genAst(argName):
+        pointer(addr argName)
+
+  result.add:
+    genast(returnType, theFunc, arrVals, callProc = bindsym"m3_Call"):
+      var arrVal = arrVals
+      let callResult = callProc(theFunc, uint32 len arrVal, cast[ptr pointer](arrVal.addr))
+      if callResult != nil:
+        raise newException(WasmError, $callResult)
+      getResult[returnType](theFunc)
+
+
+
+
+
+
+
