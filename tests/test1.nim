@@ -34,12 +34,9 @@ test "Setup a hook function and call it indirectly":
     module: PModule
 
   proc doThing(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
-    var sp = cast[uint64](sp) # Figure out a way to make this not so dumb...
-    let
-      rawReturn = cast[ptr int32](sp)
-      a = cast[ptr int32](sp + 8)[]
-      b = cast[ptr int32](sp + 16)[]
-    rawReturn[] = a * b
+    proc doThing(a, b: int32): int32 = a * b
+    callWasm((proc(a, b: int32): int32)(doThing), sp, mem)
+
 
   check m3_ParseModule(env, module.addr, cast[ptr uint8](mathsData[0].addr), uint32 mathsData.len).isNil
   check m3_LoadModule(runtime, module).isNil

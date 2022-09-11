@@ -10,6 +10,7 @@ srcDir        = "src"
 # Dependencies
 
 requires "nim >= 1.6.6"
+requires "https://github.com/beef331/micros/"
 
 
 import std/[strutils, os]

@@ -214,7 +214,9 @@ when defined(wasm3HasWasi):
   proc m3_LinkWASI*(module: PModule): Result {.importc: "m3_LinkWASI", header: "m3_api_wasi.h".}
 
 
+# This stuff here is likely to get moved to another module eventually
 import std/[macros, genasts, typetraits, enumerate]
+import micros
 
 
 
@@ -232,6 +234,15 @@ type
   WasmTuple* = concept wasmt, type WT
     WT is tuple
     wasmValidTuple(WT)
+  WasmType = concept wt, type WT # TODO: implement an interface to allow user defined types to be transferred to wasm with generic hooks
+    var
+      alloc: PFunction
+      free: PFunction
+      stackPointer: ptr uint64
+    wt.toWasm(alloc, free)
+    fromWasm[WT](stackPointer) is WT
+
+  AllowedWasmType* = WasmTypes or void or WasmTuple
 
 
 proc ptrArrayTo*(t: var WasmTypes): array[1, pointer] = [pointer(addr t)]
@@ -279,3 +290,54 @@ macro call*(theFunc: PFunction, returnType: typedesc[WasmTuple or WasmTypes or v
           if callResult != nil:
             raise newException(WasmError, $callResult)
           getResult[returnType](theFunc)
+
+macro callWasm*(p: proc, stackPointer: ptr uint64, mem: pointer): untyped =
+  ## This takes a proc, stackPointer and mem, and creates something along the lines of
+  ## `cast[ptr returnType(p)](stackPointer) = p(cast[ptr typeof(param[0])](stackPointer + sizeof(uint64) * 0)[], ..)`
+  let
+    pSym = routineSym(p)
+    pDef = block:
+      var res: RoutineNode
+      for sym in psym.routines:
+        if NimNode(res).isNil:
+          res = sym
+        else:
+          error("Cannot 'callWasm' on an overloaded symbol use some method to specify it", p)
+      res
+    retT = pDef.returnType
+  let hasReturnType = not retT.sameType(getType(void))
+  var offset =
+    if hasReturnType:
+      1
+    else:
+      0
+
+  result = newStmtList()
+  var call = macros.newCall(p)
+  type ValidParamType = WasmTypes or WasmTuple
+  for args in pDef.params:
+    let typ = args.typ
+    for _ in args.names:
+      call.add:
+        genast(stackPointer, typ, offset = newLit(offset), ValidParamType):
+          when typ isnot ValidParamType:
+            {.error: "Cannot convert to paramter type of '" & $typ & "'.".}
+          cast[ptr typ](cast[uint64](stackPointer) + sizeof(uint64) * offset)[]
+      inc offset
+  result =
+    if hasReturnType:
+      genast(retT, call, stackPointer, AllowedWasmType):
+        when retT isnot AllowedWasmType:
+          {.error: "Cannot convert to given return type '" & $retT & "'.".}
+        cast[ptr retT](stackPointer)[] = call
+    else:
+      call
+
+
+
+
+
+
+
+
+
