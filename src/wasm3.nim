@@ -3,10 +3,14 @@ import std/os
 const wasmDir = currentSourcePath().parentDir() / "/wasm3/wasm3c/source/"
 {.passC: "-I" & wasmDir.}
 
-{.compile: wasmDir / "m3_api_libc.c".}
-{.compile: wasmDir / "m3_api_wasi.c".}
-{.compile: wasmDir / "m3_api_uvwasi.c".}
-{.compile: wasmDir / "m3_api_meta_wasi.c".}
+when defined(wasm3HasWasi):
+  {.passC: "-D" & "d_m3HasWASI".}
+  {.compile: wasmDir / "m3_api_libc.c".}
+  {.compile: wasmDir / "m3_api_wasi.c".}
+  {.compile: wasmDir / "m3_api_uvwasi.c".}
+  {.compile: wasmDir / "m3_api_meta_wasi.c".}
+
+
 {.compile: wasmDir / "m3_api_tracer.c".}
 {.compile: wasmDir / "m3_bind.c".}
 {.compile: wasmDir / "m3_code.c".}
@@ -85,7 +89,7 @@ type
     fieldUtf8*: cstring
 
   PM3ImportInfo* = ptr ImportInfo
-  ImportContext* {.bycopy.} = object
+  ImportContext* {.importc:"M3ImportContext", bycopy.} = object
     userdata*: pointer
     function*: PFunction
 
@@ -206,6 +210,10 @@ proc m3_GetBacktrace*(i_runtime: PRuntime): IM3BacktraceInfo
 {.pop.}
 
 
+when defined(wasm3HasWasi):
+  proc m3_LinkWASI*(module: PModule): Result {.importc: "m3_LinkWASI", header: "m3_api_wasi.h".}
+
+
 import std/[macros, genasts, typetraits, enumerate]
 
 
@@ -234,18 +242,18 @@ proc ptrArrayTo*(t: var WasmTuple): auto =
    result[i] = pointer(x.addr)
 
 template getResult*[T: WasmTuple or WasmTypes](theFunc: PFunction): untyped =
-  var
-    res: T
-    ptrArray = res.ptrArrayTo
-  let resultsResult = m3_GetResults(theFunc, uint32 ptrArray.len, cast[ptr pointer](ptrArray.addr))
-  if resultsResult != nil:
-    raise newException(WasmError, $resultsResult)
-  res
+  when T is void:
+    discard
+  else:
+    var
+      res: T
+      ptrArray = res.ptrArrayTo
+    let resultsResult = m3_GetResults(theFunc, uint32 ptrArray.len, cast[ptr pointer](ptrArray.addr))
+    if resultsResult != nil:
+      raise newException(WasmError, $resultsResult)
+    res
 
-
-
-
-macro call*(theFunc: PFunction, returnType: typedesc[WasmTuple or WasmTypes],  args: varargs[typed]): untyped =
+macro call*(theFunc: PFunction, returnType: typedesc[WasmTuple or WasmTypes or void],  args: varargs[typed]): untyped =
   result = newStmtList()
   let arrVals = nnkBracket.newTree()
   for arg in args:
@@ -264,10 +272,3 @@ macro call*(theFunc: PFunction, returnType: typedesc[WasmTuple or WasmTypes],  a
       if callResult != nil:
         raise newException(WasmError, $callResult)
       getResult[returnType](theFunc)
-
-
-
-
-
-
-
