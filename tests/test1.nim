@@ -8,17 +8,17 @@ test "Basic load module and call procedure":
     env = m3_NewEnvironment()
     runtime = env.m3_NewRuntime(uint16.high.uint32, nil)
     module: PModule
-  check m3_ParseModule(env, module.addr, cast[ptr uint8](mathsData[0].addr), uint32 mathsData.len) == nil
-  check m3_LoadModule(runtime, module) == nil
-  check m3LinkWasi(module) == nil # We depend on WASI here
-  check m3_CompileModule(module) == nil
+  check m3_ParseModule(env, module.addr, cast[ptr uint8](mathsData[0].addr), uint32 mathsData.len).isNil
+  check m3_LoadModule(runtime, module).isNil
+  check m3LinkWasi(module).isNil # We depend on WASI here
+  check m3_CompileModule(module).isNil
 
 
   var
     addFunc: PFunction
     multiplyFunc: PFunction
-  check m3_FindFunction(addFunc.addr, runtime, "add") == nil
-  check m3_FindFunction(multiplyFunc.addr, runtime, "multiply") == nil
+  check m3_FindFunction(addFunc.addr, runtime, "add").isNil
+  check m3_FindFunction(multiplyFunc.addr, runtime, "multiply").isNil
 
   check addFunc.m3GetFunctionName() == "add"
   check multiplyFunc.m3GetFunctionName() == "multiply"
@@ -34,21 +34,48 @@ test "Setup a hook function and call it indirectly":
     module: PModule
 
   proc doThing(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
-    var sp = cast[uint64](sp)
+    var sp = cast[uint64](sp) # Figure out a way to make this not so dumb...
     let
       rawReturn = cast[ptr int32](sp)
       a = cast[ptr int32](sp + 8)[]
       b = cast[ptr int32](sp + 16)[]
     rawReturn[] = a * b
 
-  check m3_ParseModule(env, module.addr, cast[ptr uint8](mathsData[0].addr), uint32 mathsData.len) == nil
-  check m3_LoadModule(runtime, module) == nil
-  check m3LinkWasi(module) == nil
-  check m3_LinkRawFunction(module, "*", "doThing", "i(ii)", doThing) == nil
-  check m3_CompileModule(module) == nil
+  check m3_ParseModule(env, module.addr, cast[ptr uint8](mathsData[0].addr), uint32 mathsData.len).isNil
+  check m3_LoadModule(runtime, module).isNil
+  check m3LinkWasi(module).isNil
+  check m3_LinkRawFunction(module, "*", "doThing", "i(ii)", doThing).isNil
+  check m3_CompileModule(module).isNil
 
 
   var indirect: PFunction
-  check m3_FindFunction(indirect.addr, runtime, "indirectCall") == nil
+  check m3_FindFunction(indirect.addr, runtime, "indirectCall").isNil
   check indirect != nil
   indirect.call(void, 10i32, 20i32)
+
+  var global = m3_FindGlobal(module, "myArray")
+  check global != nil
+  var globalVal: WasmVal
+  check global.m3_GetGlobal(addr globalVal).isNil
+
+  type MyType = object
+    x, y, z: int32
+    w: float32
+
+  var getMyType: PFunction
+  check m3_FindFunction(getMyType.addr, runtime, "getMyType").isNil
+  check getMyType != nil
+  getMyType.call(void)
+
+  var sizeOfMem = uint32 sizeof(MyType)
+  let data = m3_GetMemory(runtime, addr sizeofMem, 0)
+  var myType: MyType
+  copyMem(myType.addr, cast[pointer](cast[uint64](data) + cast[uint64](globalVal.i32)), sizeof(myType))
+  check myType == MyType(x: 100, y: 300, z: 300, w: 15)
+  copyMem(myType.addr, cast[pointer](cast[uint64](data) + cast[uint64](globalVal.i32) + uint64 sizeof(MyType)), sizeof(myType))
+  check myType == MyType()
+
+
+
+
+

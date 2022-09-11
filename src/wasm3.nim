@@ -183,7 +183,7 @@ proc m3_GetModuleRuntime*(i_module: PModule): PRuntime
 proc m3_FindGlobal*(io_module: PModule; i_globalName: cstring): PGlobal
 proc m3_GetGlobal*(i_global: PGlobal; o_value: PWasmVal): Result
 proc m3_SetGlobal*(i_global: PGlobal; i_value: PWasmVal): Result
-proc m3_GetGlobalType*(i_global: PGlobal): WasmVal
+proc m3_GetGlobalType*(i_global: PGlobal): ValueKind
 proc m3_Yield*(): Result
 proc m3_FindFunction*(o_function: ptr PFunction; i_runtime: PRuntime;
                      i_functionName: cstring): Result
@@ -264,11 +264,18 @@ macro call*(theFunc: PFunction, returnType: typedesc[WasmTuple or WasmTypes or v
     arrVals.add:
       genAst(argName):
         pointer(addr argName)
-
-  result.add:
-    genast(returnType, theFunc, arrVals, callProc = bindsym"m3_Call"):
-      var arrVal = arrVals
-      let callResult = callProc(theFunc, uint32 len arrVal, cast[ptr pointer](arrVal.addr))
-      if callResult != nil:
-        raise newException(WasmError, $callResult)
-      getResult[returnType](theFunc)
+  if args.len > 0:
+    result.add:
+      genast(returnType, theFunc, arrVals, callProc = bindsym"m3_Call"):
+        var arrVal = arrVals
+        let callResult = callProc(theFunc, uint32 len arrVal, cast[ptr pointer](arrVal.addr))
+        if callResult != nil:
+          raise newException(WasmError, $callResult)
+        getResult[returnType](theFunc)
+  else:
+    result.add:
+        genast(returnType, theFunc, callProc = bindsym"m3_Call"):
+          let callResult = callProc(theFunc, 0, nil)
+          if callResult != nil:
+            raise newException(WasmError, $callResult)
+          getResult[returnType](theFunc)
