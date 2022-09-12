@@ -1,7 +1,4 @@
 import std/[macros]
-{.emit: """/*INCLUDESECTION*/
-#include <emscripten.h>
-""".}
 
 macro wasmexport*(t: typed): untyped =
   if t.kind notin {nnkProcDef, nnkFuncDef}:
@@ -14,7 +11,12 @@ macro wasmexport*(t: typed): untyped =
   else:
     newProc[4].add codeGen
   newProc[4].add ident"exportC"
-  result = newStmtList(newProc)
+  result = newStmtList()
+  result.add:
+    quote do:
+      {.emit: "/*INCLUDESECTION*/\n#include <emscripten.h>".}
+  result.add:
+    newProc
 
 template exportVar*(name: untyped, typ: typedesc) =
   var name {.exportC, codegendecl:"$# EMSCRIPTEN_KEEPALIVE $#".}: typ
