@@ -1,4 +1,4 @@
-include wasmedge/exporter
+include wasm3/exporter
 
 proc doThing(a, b: int32): int32 {.importC.}
 
