@@ -33,32 +33,36 @@ type
     module: PModule
     wasmData: string # have to keep data alive
 
+  WasmHostProc* = object
+    module, name, typ: string
+    prc: WasmProc
+
   AllowedWasmType* = WasmTypes or void or WasmTuple
 
+proc wasmHostProc*(module, name, typ: string, prc: WasmProc): WasmHostProc =
+  WasmHostProc(module: module, name: name, typ: typ, prc: prc)
+
+proc checkWasmRes*(res: Result) {.inline.} =
+  if res != nil:
+    raise newException(WasmError, $res)
 
 proc `=destroy`(we: var typeof(WasmEnv()[])) =
   m3FreeModule(we.module)
   m3FreeRuntime(we.runtime)
 
-proc loadWasmEnv*(wasmData: sink string, stackSize: uint32 = high(uint16)): WasmEnv =
+proc loadWasmEnv*(wasmData: sink string, stackSize: uint32 = high(uint16), hostProcs: openarray[WasmHostProc] = []): WasmEnv =
   new result
   result.wasmData = wasmData
   result.env = m3_NewEnvironment()
   result.runtime = result.env.m3_NewRuntime(stackSize, nil)
 
-  var wasmRes = m3_ParseModule(result.env, result.module.addr, cast[ptr uint8](result.wasmData[0].addr), uint32 result.wasmData.len)
-  template resCheck =
-    if wasmRes != nil:
-      raise newException(WasmError, $wasmRes)
-
-  resCheck()
-  wasmRes = m3_LoadModule(result.runtime, result.module)
-  resCheck()
+  checkWasmRes m3_ParseModule(result.env, result.module.addr, cast[ptr uint8](result.wasmData[0].addr), uint32 result.wasmData.len)
+  checkWasmRes m3_LoadModule(result.runtime, result.module)
   when defined wasm3HasWasi: # Maybe an if statement?
-    wasmRes = m3LinkWasi(result.module)
-    resCheck()
-  wasmRes = m3_CompileModule(result.module)
-  resCheck()
+    checkWasmRes m3LinkWasi(result.module)
+  for hostProc in hostProcs:
+    checkWasmRes m3LinkRawFunction(result.module, hostProc.module, cstring hostProc.name, hostProc.typ, hostProc.prc)
+  checkWasmRes m3_CompileModule(result.module)
 
 proc ptrArrayTo*(t: var WasmTypes): array[1, pointer] = [pointer(addr t)]
 
@@ -74,9 +78,7 @@ template getResult*[T: WasmTuple or WasmTypes](theFunc: PFunction): untyped =
     var
       res: T
       ptrArray = res.ptrArrayTo
-    let resultsResult = m3_GetResults(theFunc, uint32 ptrArray.len, cast[ptr pointer](ptrArray.addr))
-    if resultsResult != nil:
-      raise newException(WasmError, $resultsResult)
+    checkWasmRes m3_GetResults(theFunc, uint32 ptrArray.len, cast[ptr pointer](ptrArray.addr))
     res
 
 macro call*(theFunc: PFunction, returnType: typedesc[WasmTuple or WasmTypes or void],  args: varargs[typed]): untyped =
@@ -94,16 +96,12 @@ macro call*(theFunc: PFunction, returnType: typedesc[WasmTuple or WasmTypes or v
     result.add:
       genast(returnType, theFunc, arrVals, callProc = bindsym"m3_Call"):
         var arrVal = arrVals
-        let callResult = callProc(theFunc, uint32 len arrVal, cast[ptr pointer](arrVal.addr))
-        if callResult != nil:
-          raise newException(WasmError, $callResult)
+        checkWasmRes callProc(theFunc, uint32 len arrVal, cast[ptr pointer](arrVal.addr))
         getResult[returnType](theFunc)
   else:
     result.add:
         genast(returnType, theFunc, callProc = bindsym"m3_Call"):
-          let callResult = callProc(theFunc, 0, nil)
-          if callResult != nil:
-            raise newException(WasmError, $callResult)
+          checkWasmRes callProc(theFunc, 0, nil)
           getResult[returnType](theFunc)
 
 macro callWasm*(p: proc, stackPointer: ptr uint64, mem: pointer): untyped =
@@ -161,10 +159,7 @@ proc isType*(fnc: PFunction, args, results: openArray[ValueKind]): bool =
       return false
 
 proc findFunction*(wasmEnv: WasmEnv, name: string): PFunction =
-  let wasmRes = m3FindFunction(result.addr, wasmEnv.runtime, name)
-  if wasmRes != nil:
-    raise newException(WasmError, $wasmRes)
-
+  checkWasmRes m3FindFunction(result.addr, wasmEnv.runtime, cstring name)
 
 proc findFunction*(wasmEnv: WasmEnv, name: string, args, results: openarray[ValueKind]): PFunction =
   result = wasmEnv.findFunction(name)
@@ -172,3 +167,10 @@ proc findFunction*(wasmEnv: WasmEnv, name: string, args, results: openarray[Valu
     {.warning: "Insert rendered proc here".}
     raise newException(WasmError, "Function is not the type requested.")
 
+proc findGlobal*(wasmEnv: WasmEnv, name: string): PGlobal =
+  result = m3FindGlobal(wasmEnv.module, cstring name)
+  if result.isNil:
+    raise newException(WasmError, "Global named '" & name & "' is not found.")
+
+proc getGlobal*(global: PGlobal): WasmVal =
+  checkWasmRes m3GetGlobal(global, result.addr)

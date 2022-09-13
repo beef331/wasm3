@@ -85,6 +85,18 @@ suite "Idiomtic Nim Wrapping":
       multiplyFunc = env.findFunction("multiply")
     check addFunc.call(int32, 3i32, 4i32) == 7i32
     check multiplyFunc.call(int32, 3i32, 4i32) == 12i32
+  test "Setup a hook function and call it indirectly":
+
+    proc doThing(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+      proc doStuff(a, b: int32): int32 = a * b
+      callWasm(doStuff, sp, mem)
+
+    let
+      env = loadWasmEnv(readFile"hooks.wasm", hostProcs = [wasmHostProc("*", "doThing", "i(ii)", doThing)])
+      indirect = env.findFunction("indirectCall", [I32, I32], [])
+
+    indirect.call(void, 10i32, 20i32)
+
 
 
 
