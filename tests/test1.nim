@@ -1,5 +1,6 @@
 import unittest
 import wasm3
+import wasm3/wasm3c
 
 
 test "Basic load module and call procedure":
@@ -68,7 +69,7 @@ test "Setup a hook function and call it indirectly":
   check getMyType.isType([], [])
   getMyType.call(void)
 
-  var sizeOfMem = uint32 sizeof(MyType)
+  var sizeOfMem = 0u32
   let data = m3_GetMemory(runtime, addr sizeofMem, 0)
   var myType: MyType
   copyMem(myType.addr, cast[pointer](cast[uint64](data) + cast[uint64](globalVal.i32)), sizeof(myType))
