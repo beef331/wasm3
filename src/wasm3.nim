@@ -1,4 +1,4 @@
-import wasm3/wasm3c
+import wasm3/[wasm3c, wasmconversions]
 # This stuff here is likely to get moved to another module eventually
 import std/[macros, genasts, typetraits, enumerate, tables]
 import micros
@@ -7,7 +7,6 @@ import micros
 
 type
   WasmError* = object of CatchableError
-  WasmTypes* = int32 or uint32 or int64 or uint64 or float32 or float64
 
 proc wasmValidTuple*(t: typedesc[tuple]): bool =
   result = true
@@ -19,13 +18,7 @@ type
   WasmTuple* = concept wasmt, type WT
     WT is tuple
     wasmValidTuple(WT)
-  WasmType = concept wt, type WT # TODO: implement an interface to allow user defined types to be transferred to wasm with generic hooks
-    var
-      alloc: PFunction
-      free: PFunction
-      stackPointer: ptr uint64
-    wt.toWasm(alloc, free)
-    fromWasm[WT](stackPointer) is WT
+
 
   WasmEnv* = ref object # ref counting is good for the soul
     env: PEnv
@@ -184,6 +177,13 @@ proc getFromMem*(wasmEnv: WasmEnv, T: typedesc, pos: uint32, offset: uint64 = 0)
   if pos + uint32(sizeof(T)) + uint32(offset) > sizeOfMem:
     raise newException(WasmError, "Attempted to read outside of memory bounds")
   copyMem(result.addr, cast[pointer](cast[uint64](thePtr) + cast[uint64](pos) + offset), sizeof(T))
+
+proc setMem*[T](wasmEnv: WasmEnv, val: T, pos: uint32, offset: uint64 = 0) =
+  var sizeOfMem: uint32
+  let thePtr = m3GetMemory(wasmEnv.runtime, addr sizeOfMem, 0)
+  if pos + uint32(sizeof(T)) + uint32(offset) > sizeOfMem:
+    raise newException(WasmError, "Attempted to write outside of memory bounds")
+  copyMem(thePtr, val.unsafeAddr, typeof(val))
 
 
 
