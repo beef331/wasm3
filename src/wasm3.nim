@@ -189,8 +189,8 @@ proc m3_FindFunction*(o_function: ptr PFunction; i_runtime: PRuntime;
                      i_functionName: cstring): Result
 proc m3_GetArgCount*(i_function: PFunction): uint32
 proc m3_GetRetCount*(i_function: PFunction): uint32
-proc m3_GetArgType*(i_function: PFunction; i_index: uint32): WasmVal
-proc m3_GetRetType*(i_function: PFunction; i_index: uint32): WasmVal
+proc m3_GetArgType*(i_function: PFunction; i_index: uint32): ValueKind
+proc m3_GetRetType*(i_function: PFunction; i_index: uint32): ValueKind
 proc m3_CallV*(i_function: PFunction): Result {.varargs.}
 #proc m3_CallVL*(i_function: PFunction; i_args: va_list): Result
 proc m3_Call*(i_function: PFunction; i_argc: uint32; i_argptrs: ptr pointer): Result
@@ -334,9 +334,16 @@ macro callWasm*(p: proc, stackPointer: ptr uint64, mem: pointer): untyped =
       call
 
 
-
-
-
+proc isType*(fnc: PFunction, args, results: openArray[ValueKind]): bool =
+  result = true
+  if m3_GetRetCount(fnc) != uint32(results.len) or m3_GetArgCount(fnc) != uint32(args.len):
+    return false
+  for i, arg in args:
+    if arg != m3_GetArgType(fnc, uint32 i):
+      return false
+  for i, res in results:
+    if res != m3_GetRetType(fnc, uint32 i):
+      return false
 
 
 

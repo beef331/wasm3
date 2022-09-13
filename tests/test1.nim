@@ -19,6 +19,8 @@ test "Basic load module and call procedure":
     multiplyFunc: PFunction
   check m3_FindFunction(addFunc.addr, runtime, "add").isNil
   check m3_FindFunction(multiplyFunc.addr, runtime, "multiply").isNil
+  check addFunc.isType([I32, I32], [I32])
+  check multiplyFunc.isType([I32, I32], [I32])
 
   check addFunc.m3GetFunctionName() == "add"
   check multiplyFunc.m3GetFunctionName() == "multiply"
@@ -34,8 +36,8 @@ test "Setup a hook function and call it indirectly":
     module: PModule
 
   proc doThing(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
-    proc doThing(a, b: int32): int32 = a * b
-    callWasm((proc(a, b: int32): int32)(doThing), sp, mem)
+    proc doStuff(a, b: int32): int32 = a * b
+    callWasm(doStuff, sp, mem)
 
 
   check m3_ParseModule(env, module.addr, cast[ptr uint8](mathsData[0].addr), uint32 mathsData.len).isNil
@@ -48,6 +50,7 @@ test "Setup a hook function and call it indirectly":
   var indirect: PFunction
   check m3_FindFunction(indirect.addr, runtime, "indirectCall").isNil
   check indirect != nil
+  check indirect.isType([I32, I32], [])
   indirect.call(void, 10i32, 20i32)
 
   var global = m3_FindGlobal(module, "myArray")
@@ -62,6 +65,7 @@ test "Setup a hook function and call it indirectly":
   var getMyType: PFunction
   check m3_FindFunction(getMyType.addr, runtime, "getMyType").isNil
   check getMyType != nil
+  check getMyType.isType([], [])
   getMyType.call(void)
 
   var sizeOfMem = uint32 sizeof(MyType)
