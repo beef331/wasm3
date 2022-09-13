@@ -87,6 +87,11 @@ suite "Idiomtic Nim Wrapping":
     check multiplyFunc.call(int32, 3i32, 4i32) == 12i32
   test "Setup a hook function and call it indirectly":
 
+    type MyType = object
+      x, y, z: int32
+      w: float32
+
+
     proc doThing(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
       proc doStuff(a, b: int32): int32 = a * b
       callWasm(doStuff, sp, mem)
@@ -96,6 +101,14 @@ suite "Idiomtic Nim Wrapping":
       indirect = env.findFunction("indirectCall", [I32, I32], [])
 
     indirect.call(void, 10i32, 20i32)
+
+    let global = env.getGlobal("myArray")
+    check global.kind == I32
+
+    env.findFunction("getMyType", [], []).call(void)
+
+    check env.getFromMem(MyType, cast[uint32](global.i32)) == MyType(x: 100, y: 300, z: 300, w: 15)
+    check env.getFromMem(MyType, cast[uint32](global.i32), uint64 sizeof(MyType)) == MyType()
 
 
 

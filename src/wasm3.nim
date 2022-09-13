@@ -174,3 +174,16 @@ proc findGlobal*(wasmEnv: WasmEnv, name: string): PGlobal =
 
 proc getGlobal*(global: PGlobal): WasmVal =
   checkWasmRes m3GetGlobal(global, result.addr)
+
+proc getGlobal*(wasmEnv: WasmEnv, name: string): WasmVal =
+  wasmEnv.findGlobal(name).getGlobal()
+
+proc getFromMem*(wasmEnv: WasmEnv, T: typedesc, pos: uint32, offset: uint64 = 0): T =
+  var sizeOfMem: uint32
+  let thePtr = m3GetMemory(wasmEnv.runtime, addr sizeOfMem, 0)
+  if pos + uint32(sizeof(T)) + uint32(offset) > sizeOfMem:
+    raise newException(WasmError, "Attempted to read outside of memory bounds")
+  copyMem(result.addr, cast[pointer](cast[uint64](thePtr) + cast[uint64](pos) + offset), sizeof(T))
+
+
+
