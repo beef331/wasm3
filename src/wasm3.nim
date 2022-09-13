@@ -1,6 +1,6 @@
 import wasm3/wasm3c
 # This stuff here is likely to get moved to another module eventually
-import std/[macros, genasts, typetraits, enumerate]
+import std/[macros, genasts, typetraits, enumerate, tables]
 import micros
 
 
@@ -28,23 +28,24 @@ type
     fromWasm[WT](stackPointer) is WT
 
   WasmEnv* = ref object # ref counting is good for the soul
-    env: PEnvironment
+    env: PEnv
     runtime: PRuntime
     module: PModule
     wasmData: string # have to keep data alive
+    cachedFunctions: Table[string, PFunction] # Method to make it more efficient to call procedures, might be dumb
 
   AllowedWasmType* = WasmTypes or void or WasmTuple
 
 
 proc `=destroy`(we: var typeof(WasmEnv()[])) =
-  m3FreeRuntime(we.module)
+  m3FreeModule(we.module)
   m3FreeRuntime(we.runtime)
 
 proc loadWasmEnv*(wasmData: sink string, stackSize: uint32 = high(uint16)): WasmEnv =
   new result
   result.wasmData = wasmData
   result.env = m3_NewEnvironment()
-  result.runtime = env.m3_NewRuntime(stackSize, nil)
+  result.runtime = result.env.m3_NewRuntime(stackSize, nil)
 
   var wasmRes = m3_ParseModule(result.env, result.module.addr, cast[ptr uint8](result.wasmData[0].addr), uint32 result.wasmData.len)
   template resCheck =
@@ -160,3 +161,17 @@ proc isType*(fnc: PFunction, args, results: openArray[ValueKind]): bool =
     if res != m3_GetRetType(fnc, uint32 i):
       return false
 
+proc findFunction*(wasmEnv: WasmEnv, name: string): PFunction =
+  result = wasmEnv.cachedFunctions.getOrDefault(name)
+  if result.isNil:
+    let wasmRes = m3FindFunction(result.addr, wasmEnv.runtime, name)
+    if wasmRes != nil:
+      raise newException(WasmError, $wasmRes)
+    wasmEnv.cachedFunctions[name] = result
+
+
+proc findFunction*(wasmEnv: WasmEnv, name: string, args, results: openarray[ValueKind]): PFunction =
+  result = wasmEnv.findFunction(name)
+  if not result.isType(args, results):
+    {.warning: "Insert rendered proc here".}
+    raise newException(WasmError, "Function is not the type requested.")
