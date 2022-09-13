@@ -32,7 +32,6 @@ type
     runtime: PRuntime
     module: PModule
     wasmData: string # have to keep data alive
-    cachedFunctions: Table[string, PFunction] # Method to make it more efficient to call procedures, might be dumb
 
   AllowedWasmType* = WasmTypes or void or WasmTuple
 
@@ -162,12 +161,9 @@ proc isType*(fnc: PFunction, args, results: openArray[ValueKind]): bool =
       return false
 
 proc findFunction*(wasmEnv: WasmEnv, name: string): PFunction =
-  result = wasmEnv.cachedFunctions.getOrDefault(name)
-  if result.isNil:
-    let wasmRes = m3FindFunction(result.addr, wasmEnv.runtime, name)
-    if wasmRes != nil:
-      raise newException(WasmError, $wasmRes)
-    wasmEnv.cachedFunctions[name] = result
+  let wasmRes = m3FindFunction(result.addr, wasmEnv.runtime, name)
+  if wasmRes != nil:
+    raise newException(WasmError, $wasmRes)
 
 
 proc findFunction*(wasmEnv: WasmEnv, name: string, args, results: openarray[ValueKind]): PFunction =
@@ -175,3 +171,4 @@ proc findFunction*(wasmEnv: WasmEnv, name: string, args, results: openarray[Valu
   if not result.isType(args, results):
     {.warning: "Insert rendered proc here".}
     raise newException(WasmError, "Function is not the type requested.")
+
