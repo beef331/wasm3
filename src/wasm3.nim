@@ -41,6 +41,7 @@ proc checkWasmRes*(res: Result) {.inline.} =
 
 proc `=destroy`(we: var typeof(WasmEnv()[])) =
   m3FreeRuntime(we.runtime)
+  m3FreeEnvironment(we.env)
 
 proc loadWasmEnv*(wasmData: sink string, stackSize: uint32 = high(uint16), hostProcs: openarray[WasmHostProc] = []): WasmEnv =
   new result
@@ -49,7 +50,12 @@ proc loadWasmEnv*(wasmData: sink string, stackSize: uint32 = high(uint16), hostP
   result.runtime = result.env.m3_NewRuntime(stackSize, nil)
 
   checkWasmRes m3_ParseModule(result.env, result.module.addr, cast[ptr uint8](result.wasmData[0].addr), uint32 result.wasmData.len)
-  checkWasmRes m3_LoadModule(result.runtime, result.module)
+  try:
+    checkWasmRes m3_LoadModule(result.runtime, result.module)
+  except WasmError as e:
+    m3FreeModule(result.module)
+    raise e
+
   when defined wasm3HasWasi: # Maybe an if statement?
     checkWasmRes m3LinkWasi(result.module)
   for hostProc in hostProcs:
