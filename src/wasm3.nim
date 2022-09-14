@@ -186,4 +186,11 @@ proc setMem*[T](wasmEnv: WasmEnv, val: T, pos: uint32, offset: uint64 = 0) =
   copyMem(cast[pointer](cast[uint64](thePtr) + cast[uint64](pos) + offset), val.unsafeAddr, sizeof typeof(val))
 
 
+proc copyMem*(wasmEnv: WasmEnv, pos: uint32, p: pointer, len: int) =
+  var sizeOfMem: uint32
+  let thePtr = m3GetMemory(wasmEnv.runtime, addr sizeOfMem, 0)
+  if pos + uint32(len) > sizeOfMem:
+    raise newException(WasmError, "Attempted to write outside of memory bounds")
+  copyMem(cast[pointer](cast[uint64](thePtr) + cast[uint64](pos)), p, len)
+
 
