@@ -40,7 +40,6 @@ proc checkWasmRes*(res: Result) {.inline.} =
     raise newException(WasmError, $res)
 
 proc `=destroy`(we: var typeof(WasmEnv()[])) =
-  m3FreeModule(we.module)
   m3FreeRuntime(we.runtime)
 
 proc loadWasmEnv*(wasmData: sink string, stackSize: uint32 = high(uint16), hostProcs: openarray[WasmHostProc] = []): WasmEnv =
