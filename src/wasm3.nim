@@ -42,6 +42,7 @@ proc checkWasmRes*(res: Result) {.inline.} =
 proc `=destroy`(we: var typeof(WasmEnv()[])) =
   m3FreeRuntime(we.runtime)
   m3FreeEnvironment(we.env)
+  `=destroy`(we.wasmData)
 
 proc loadWasmEnv*(wasmData: sink string, stackSize: uint32 = high(uint16), hostProcs: openarray[WasmHostProc] = []): WasmEnv =
   new result
@@ -59,7 +60,7 @@ proc loadWasmEnv*(wasmData: sink string, stackSize: uint32 = high(uint16), hostP
   when defined wasm3HasWasi: # Maybe an if statement?
     checkWasmRes m3LinkWasi(result.module)
   for hostProc in hostProcs:
-    checkWasmRes m3LinkRawFunction(result.module, hostProc.module, cstring hostProc.name, hostProc.typ, hostProc.prc)
+    checkWasmRes m3LinkRawFunction(result.module, cstring hostProc.module, cstring hostProc.name, cstring hostProc.typ, hostProc.prc)
   checkWasmRes m3_CompileModule(result.module)
 
 proc ptrArrayTo*(t: var WasmTypes): array[1, pointer] = [pointer(addr t)]
