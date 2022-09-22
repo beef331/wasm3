@@ -53,9 +53,9 @@ proc loadWasmEnv*(wasmData: sink string, stackSize: uint32 = high(uint16), hostP
   checkWasmRes m3_ParseModule(result.env, result.module.addr, cast[ptr uint8](result.wasmData[0].addr), uint32 result.wasmData.len)
   try:
     checkWasmRes m3_LoadModule(result.runtime, result.module)
-  except WasmError as e:
+  except WasmError:
     m3FreeModule(result.module)
-    raise e
+    raise
 
   when defined wasm3HasWasi: # Maybe an if statement?
     checkWasmRes m3LinkWasi(result.module)
