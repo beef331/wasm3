@@ -33,3 +33,4 @@ You can follow the instructions [here](https://github.com/arnetheduck/nlvm#wasm3
 ## How Wasm3 is compiled?
 Wasm3 is a git submodule and compiled directly using Nim's `{.compile.}`.
 There are no dynamic or static libraries as it is included directly as C source code.
+Wasm3 is licensed under the MIT license as are these bindings.
