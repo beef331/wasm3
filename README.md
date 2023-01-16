@@ -2,10 +2,18 @@
 Nim bindings of the lovely [wasm3](https://github.com/wasm3/wasm3) Wasm runtime.
 
 ## How to use?
-`nimble install https://github.com/beef331/wasm3/`
+
+add this to your project's .nimble file:
+
+```nim
+requires "https://github.com/beef331/wasm3 >= 0.1.1"
+```
+
+then run `nimble install -d`
 
 Then a basic program with can be written as follows:
 ```nim
+import unittest
 import wasm3
 let
   env = loadWasmEnv(readFile"maths.wasm")
@@ -29,6 +37,24 @@ For emscripten you can use `wasm3/exporter` utillities to export code to the run
 #### Nlvm
 You can follow the instructions [here](https://github.com/arnetheduck/nlvm#wasm32-support) though the Nlvm stdlib does not support WASI at the time of writing.
 
+
+#### example wasm
+
+Here is an example rust wasm you can use in above example-code:
+
+```rs
+// rustc --target wasm32-unknown-unknown maths.rs -o maths.wasm --crate-type cdylib
+
+#[no_mangle]
+pub extern fn add(x: i32, y: i32) -> i32 {
+    x + y
+}
+
+#[no_mangle]
+pub extern fn multiply(x: i32, y: i32) -> i32 {
+    x * y
+}
+```
 
 ## How Wasm3 is compiled?
 Wasm3 is a git submodule and compiled directly using Nim's `{.compile.}`.
