@@ -7,6 +7,7 @@ license       = "MIT"
 srcDir        = "src"
 
 skipDirs = @["platforms", "docs", "extra", "test"]
+skipFiles = @["txt", "py", "zig"]
 
 # Dependencies
 
