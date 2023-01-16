@@ -6,6 +6,8 @@ description   = "A new awesome nimble package"
 license       = "MIT"
 srcDir        = "src"
 
+skipDirs = @["wasm3/wasm3c/platforms", "wasm3/wasm3c/extras", "wasm3/wasm3c/docs"]
+
 
 # Dependencies
 
