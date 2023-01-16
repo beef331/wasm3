@@ -3,7 +3,7 @@ import wasm3/[wasm3c, wasmconversions]
 import std/[macros, genasts, typetraits, enumerate, tables]
 import micros
 
-
+export wasmconversions
 
 type
   WasmError* = object of CatchableError
@@ -25,12 +25,21 @@ type
     runtime: PRuntime
     module: PModule
     wasmData: string # have to keep data alive
+    allocFunc, deallocFunc: PFunction
 
   WasmHostProc* = object
     module, name, typ: string
     prc: WasmProc
 
   AllowedWasmType* = WasmTypes or void or WasmTuple
+
+  WasmPtr* = distinct uint32
+
+  WasmAllocatable* = concept wa
+    var dest: ptr uint8
+    wasmSize(wa) is uint32
+    wasmCopyTo(wa, dest)
+
 
 proc wasmHostProc*(module, name, typ: string, prc: WasmProc): WasmHostProc =
   WasmHostProc(module: module, name: name, typ: typ, prc: prc)
@@ -44,7 +53,14 @@ proc `=destroy`(we: var typeof(WasmEnv()[])) =
   m3FreeEnvironment(we.env)
   `=destroy`(we.wasmData)
 
-proc loadWasmEnv*(wasmData: sink string, stackSize: uint32 = high(uint16), hostProcs: openarray[WasmHostProc] = []): WasmEnv =
+proc findFunction*(wasmEnv: WasmEnv, name: string, args, results: openarray[ValueKind]): PFunction
+
+proc loadWasmEnv*(
+  wasmData: sink string,
+  stackSize: uint32 = high(uint16),
+  hostProcs: openarray[WasmHostProc] = [],
+  loadAlloc = false
+  ): WasmEnv =
   new result
   result.wasmData = wasmData
   result.env = m3_NewEnvironment()
@@ -62,6 +78,10 @@ proc loadWasmEnv*(wasmData: sink string, stackSize: uint32 = high(uint16), hostP
   for hostProc in hostProcs:
     checkWasmRes m3LinkRawFunction(result.module, cstring hostProc.module, cstring hostProc.name, cstring hostProc.typ, hostProc.prc)
   checkWasmRes m3_CompileModule(result.module)
+
+  if loadAlloc:
+    result.allocFunc = result.findFunction("alloc", [I32], [I32])
+    result.deallocFunc = result.findFunction("dealloc", [I32], [])
 
 proc ptrArrayTo*(t: var WasmTypes): array[1, pointer] = [pointer(addr t)]
 
@@ -81,6 +101,7 @@ template getResult*[T: WasmTuple or WasmTypes](theFunc: PFunction): untyped =
     res
 
 macro call*(theFunc: PFunction, returnType: typedesc[WasmTuple or WasmTypes or void],  args: varargs[typed]): untyped =
+  ## Calls
   result = newStmtList()
   let arrVals = nnkBracket.newTree()
   for arg in args:
@@ -103,9 +124,10 @@ macro call*(theFunc: PFunction, returnType: typedesc[WasmTuple or WasmTypes or v
           checkWasmRes callProc(theFunc, 0, nil)
           getResult[returnType](theFunc)
 
-macro callWasm*(p: proc, stackPointer: ptr uint64, mem: pointer): untyped =
-  ## This takes a proc, stackPointer and mem, and creates something along the lines of
-  ## `cast[ptr returnType(p)](stackPointer) = p(cast[ptr typeof(param[0])](stackPointer + sizeof(uint64) * 0)[], ..)`
+macro callHost*(p: proc, stackPointer: var uint64, mem: pointer): untyped =
+  ## This takes a proc, stackPointer and mem.
+  ## It emits `fromWasm` for each argument, and `ptr ReturnType` for the return value.
+  ## It then calls the proc with args and sets the return value.
   let
     pSym = routineSym(p)
     pDef = block:
@@ -118,35 +140,35 @@ macro callWasm*(p: proc, stackPointer: ptr uint64, mem: pointer): untyped =
       res
     retT = pDef.returnType
   let hasReturnType = not retT.sameType(getType(void))
-  var offset =
-    if hasReturnType:
-      1
-    else:
-      0
 
   result = newStmtList()
   var call = macros.newCall(p)
-  type ValidParamType = WasmTypes or WasmTuple
+
   for args in pDef.params:
     let typ = args.typ
     for _ in args.names:
       call.add:
-        genast(stackPointer, typ, offset = newLit(offset), ValidParamType):
-          when typ isnot ValidParamType:
-            {.error: "Cannot convert to paramter type of '" & $typ & "'.".}
-          cast[ptr typ](cast[uint64](stackPointer) + sizeof(uint64) * offset)[]
-      inc offset
+        genast(stackPointer, typ):
+          let arg = block:
+            var val: typ
+            val.fromWasm(stackPointer, mem)
+            val
+          arg
+
   result =
     if hasReturnType:
-      genast(retT, call, stackPointer, AllowedWasmType):
-        when retT isnot AllowedWasmType:
-          {.error: "Cannot convert to given return type '" & $retT & "'.".}
-        cast[ptr retT](stackPointer)[] = call
+      genast(retT, call, stackPointer):
+        let retType = block:
+          var val: ptr retT
+          val.fromWasm(stackPointer, mem)
+          val
+        retType[] = call
     else:
       call
 
 
 proc isType*(fnc: PFunction, args, results: openArray[ValueKind]): bool =
+  # Returns whether a wasm module's function matches the type signature supplied.
   result = true
   if m3_GetRetCount(fnc) != uint32(results.len) or m3_GetArgCount(fnc) != uint32(args.len):
     return false
@@ -198,5 +220,13 @@ proc copyMem*(wasmEnv: WasmEnv, pos: uint32, p: pointer, len: int) =
   if pos + uint32(len) > sizeOfMem:
     raise newException(WasmError, "Attempted to write outside of memory bounds")
   copyMem(cast[pointer](cast[uint64](thePtr) + cast[uint64](pos)), p, len)
+
+proc copyTo*[T: WasmAllocatable](wasmEnv: WasmEnv, data: T): WasmPtr =
+  mixin wasmCopyTo, wasmSize
+  let size = data.wasmSize()
+  result = WasmPtr(wasmEnv.allocFunc.call(uint32, size))
+  var memSize: uint32
+  let dest = wasmEnv.env.m3GetMemory(memSize.addr, uint32 result)
+  data.wasmCopyTo(dest)
 
 

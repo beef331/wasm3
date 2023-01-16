@@ -37,8 +37,9 @@ suite "Raw C wrapping":
       module: PModule
 
     proc doThing(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+      var sp = sp.stackPtrToUint
       proc doStuff(a, b: int32): int32 = a * b
-      callWasm(doStuff, sp, mem)
+      callHost(doStuff, sp, mem)
 
 
     check m3_ParseModule(env, module.addr, cast[ptr uint8](mathsData[0].addr), uint32 mathsData.len).isNil
@@ -93,8 +94,36 @@ suite "Idiomtic Nim Wrapping":
 
 
     proc doThing(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+      var sp = sp.stackPtrToUint()
       proc doStuff(a, b: int32): int32 = a * b
-      callWasm(doStuff, sp, mem)
+      callHost(doStuff, sp, mem)
+
+    let
+      env = loadWasmEnv(readFile"hooks.wasm", hostProcs = [wasmHostProc("*", "doThing", "i(ii)", doThing)])
+      indirect = env.findFunction("indirectCall", [I32, I32], [])
+
+    indirect.call(void, 10i32, 20i32)
+
+    let global = env.getGlobal("myArray")
+    check global.kind == I32
+
+    env.findFunction("getMyType", [], []).call(void)
+
+    check env.getFromMem(MyType, cast[uint32](global.i32)) == MyType(x: 100, y: 300, z: 300, w: 15)
+    check env.getFromMem(MyType, cast[uint32](global.i32), uint64 sizeof(MyType)) == MyType()
+  test "Setup a hook function and call it indirectly using wasmconversions":
+
+    type MyType = object
+      x, y, z: int32
+      w: float32
+
+
+    proc doThing(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+      var sp = cast[uint64](sp)
+      extractAs(res, ptr int32, sp, mem)
+      extractAs(a, int32, sp, mem)
+      extractAs(b, int32, sp, mem)
+      res[] = a * b
 
     let
       env = loadWasmEnv(readFile"hooks.wasm", hostProcs = [wasmHostProc("*", "doThing", "i(ii)", doThing)])
