@@ -40,20 +40,10 @@ You can follow the instructions [here](https://github.com/arnetheduck/nlvm#wasm3
 
 #### example wasm
 
-Here is an example rust wasm you can use in above example-code:
+You can build the example maths.wasm (if you have emscripten installed) with this command:
 
-```rs
-// rustc --target wasm32-unknown-unknown maths.rs -o maths.wasm --crate-type cdylib
-
-#[no_mangle]
-pub extern fn add(x: i32, y: i32) -> i32 {
-    x + y
-}
-
-#[no_mangle]
-pub extern fn multiply(x: i32, y: i32) -> i32 {
-    x * y
-}
+```
+nim c wasmsources/maths.nim
 ```
 
 ## How Wasm3 is compiled?
