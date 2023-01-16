@@ -6,7 +6,7 @@ description   = "A new awesome nimble package"
 license       = "MIT"
 srcDir        = "src"
 
-skipDirs = @["platforms", "docs", "extra", "test"]
+skipDirs = @["platforms", "docs", "test"]
 skipFiles = @["txt", "py", "zig"]
 
 # Dependencies
