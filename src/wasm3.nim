@@ -139,7 +139,7 @@ macro callHost*(p: proc, stackPointer: var uint64, mem: pointer): untyped =
           error("Cannot 'callWasm' on an overloaded symbol use some method to specify it", p)
       res
     retT = pDef.returnType
-  let hasReturnType = not retT.sameType(getType(void))
+  let hasReturnType = retT.kind != nnkEmpty and not retT.sameType(getType(void))
 
   result = newStmtList()
   var call = macros.newCall(p)
@@ -154,7 +154,6 @@ macro callHost*(p: proc, stackPointer: var uint64, mem: pointer): untyped =
             val.fromWasm(stackPointer, mem)
             val
           arg
-
   result =
     if hasReturnType:
       genast(retT, call, stackPointer):
@@ -165,7 +164,6 @@ macro callHost*(p: proc, stackPointer: var uint64, mem: pointer): untyped =
         retType[] = call
     else:
       call
-
 
 proc isType*(fnc: PFunction, args, results: openArray[ValueKind]): bool =
   # Returns whether a wasm module's function matches the type signature supplied.

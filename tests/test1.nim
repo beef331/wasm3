@@ -158,6 +158,23 @@ suite "Idiomtic Nim Wrapping":
     env.findFunction("main", [], []).call(void)
 
 
+  test "Setup log hook function and call it, using callHost":
+
+    proc fromWasm(cstr: var cstring, sp: var uint64, mem: pointer) =
+      var i: uint32
+      i.fromWasm(sp, mem)
+      cStr = cast[cstring](cast[uint64](mem) + i)
+
+    proc logProc(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+      proc logProcImpl(c: cstring) =
+        echo c
+      var sp = sp.stackPtrToUint()
+      callHost(logProcImpl, sp, mem)
+
+    let env = loadWasmEnv(readFile"log.wasm", hostProcs = [wasmHostProc("*", "logIt", "v(i)", logProc)])
+
+    env.findFunction("main", [], []).call(void)
+
 
 
 
