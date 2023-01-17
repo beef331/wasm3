@@ -111,6 +111,7 @@ suite "Idiomtic Nim Wrapping":
 
     check env.getFromMem(MyType, cast[uint32](global.i32)) == MyType(x: 100, y: 300, z: 300, w: 15)
     check env.getFromMem(MyType, cast[uint32](global.i32), uint64 sizeof(MyType)) == MyType()
+
   test "Setup a hook function and call it indirectly using wasmconversions":
 
     type MyType = object
@@ -119,7 +120,7 @@ suite "Idiomtic Nim Wrapping":
 
 
     proc doThing(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
-      var sp = cast[uint64](sp)
+      var sp = sp.stackPtrToUint()
       extractAs(res, ptr int32, sp, mem)
       extractAs(a, int32, sp, mem)
       extractAs(b, int32, sp, mem)
@@ -138,6 +139,24 @@ suite "Idiomtic Nim Wrapping":
 
     check env.getFromMem(MyType, cast[uint32](global.i32)) == MyType(x: 100, y: 300, z: 300, w: 15)
     check env.getFromMem(MyType, cast[uint32](global.i32), uint64 sizeof(MyType)) == MyType()
+
+
+  test "Setup log hook function and call it":
+
+    proc fromWasm(cstr: var cstring, sp: var uint64, mem: pointer) =
+      var i: uint32
+      i.fromWasm(sp, mem)
+      cStr = cast[cstring](cast[uint64](mem) + i)
+
+    proc logProc(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+      var sp = sp.stackPtrToUint()
+      extractAs(msg, cstring, sp, mem)
+      echo msg
+
+    let env = loadWasmEnv(readFile"log.wasm", hostProcs = [wasmHostProc("*", "logIt", "v(i)", logProc)])
+
+    env.findFunction("main", [], []).call(void)
+
 
 
 

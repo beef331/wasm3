@@ -14,7 +14,7 @@ type
 
 proc fromWasm*[T: SomeNumber or enum or bool](result: var T, stackPtr: var uint64, mem: pointer) =
   result = cast[ptr T](stackPtr)[]
-  stackPtr += 8 # Should this be `sizeof(pointer)`?
+  stackPtr += uint64 sizeof(pointer)
 
 proc fromWasm*[T](result: var openArray[T], stackPtr: var uint64, mem: pointer) =
   for val in result.mitems:
@@ -29,7 +29,7 @@ proc fromWasm*(result: (var seq) or (var string), stackPtr: var uint64, mem: poi
 
 proc fromWasm*(result: var ptr, stackPtr: var uint64, mem: pointer) =
   result = cast[typeof(result)](stackPtr)
-  stackPtr += 8
+  stackPtr += uint64 sizeof(pointer)
 
 proc stackPtrToUint*(stackPtr: ptr uint64): uint64 = cast[uint64](stackPtr)
 
