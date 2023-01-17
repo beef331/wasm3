@@ -143,11 +143,6 @@ suite "Idiomtic Nim Wrapping":
 
   test "Setup log hook function and call it":
 
-    proc fromWasm(cstr: var cstring, sp: var uint64, mem: pointer) =
-      var i: uint32
-      i.fromWasm(sp, mem)
-      cStr = cast[cstring](cast[uint64](mem) + i)
-
     proc logProc(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
       var sp = sp.stackPtrToUint()
       extractAs(msg, cstring, sp, mem)
@@ -160,10 +155,6 @@ suite "Idiomtic Nim Wrapping":
 
   test "Setup log hook function and call it, using callHost":
 
-    proc fromWasm(cstr: var cstring, sp: var uint64, mem: pointer) =
-      var i: uint32
-      i.fromWasm(sp, mem)
-      cStr = cast[cstring](cast[uint64](mem) + i)
 
     proc logProc(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
       proc logProcImpl(c: cstring) =

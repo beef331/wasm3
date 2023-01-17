@@ -31,6 +31,11 @@ proc fromWasm*(result: var ptr, stackPtr: var uint64, mem: pointer) =
   result = cast[typeof(result)](stackPtr)
   stackPtr += uint64 sizeof(pointer)
 
+proc fromWasm*(cstr: var cstring, sp: var uint64, mem: pointer) =
+  var i: uint32
+  i.fromWasm(sp, mem)
+  cStr = cast[cstring](cast[uint64](mem) + i)
+
 proc stackPtrToUint*(stackPtr: ptr uint64): uint64 = cast[uint64](stackPtr)
 
 template extractAs*(name: untyped, typ: typedesc, stackPtr: var uint64, mem: pointer) =
