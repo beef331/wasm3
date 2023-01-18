@@ -41,11 +41,17 @@ suite "Raw C wrapping":
       proc doStuff(a, b: int32): int32 = a * b
       callHost(doStuff, sp, mem)
 
+    proc arrPassTest(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+      var sp = sp.stackPtrToUint()
+      proc arrPass(a: array[4, int32]) = check a == [10i32, 20, 30, 40]
+      callHost(arrPass, sp, mem)
+
 
     check m3_ParseModule(env, module.addr, cast[ptr uint8](mathsData[0].addr), uint32 mathsData.len).isNil
     check m3_LoadModule(runtime, module).isNil
     check m3LinkWasi(module).isNil
     check m3_LinkRawFunction(module, "*", "doThing", "i(ii)", doThing).isNil
+    check m3_LinkRawFunction(module, "*", "arrPass", "v(i)", arrPassTest).isNil
     check m3_CompileModule(module).isNil
 
 
@@ -98,11 +104,22 @@ suite "Idiomtic Nim Wrapping":
       proc doStuff(a, b: int32): int32 = a * b
       callHost(doStuff, sp, mem)
 
+    proc arrPassTest(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+      var sp = sp.stackPtrToUint()
+      proc arrPass(a: array[4, int32]) = check a == [10i32, 20, 30, 40]
+      callHost(arrPass, sp, mem)
+
     let
-      env = loadWasmEnv(readFile"hooks.wasm", hostProcs = [wasmHostProc("*", "doThing", "i(ii)", doThing)])
+      env = loadWasmEnv(readFile"hooks.wasm", hostProcs = [
+        wasmHostProc("*", "doThing", "i(ii)", doThing),
+        wasmHostProc("*", "arrPass", "v(i)", arrPassTest)
+        ]
+      )
       indirect = env.findFunction("indirectCall", [I32, I32], [])
+      arrPass = env.findFunction("callArrPass", [], [])
 
     indirect.call(void, 10i32, 20i32)
+    arrPass.call(void)
 
     let global = env.getGlobal("myArray")
     check global.kind == I32
@@ -126,8 +143,18 @@ suite "Idiomtic Nim Wrapping":
       extractAs(b, int32, sp, mem)
       res[] = a * b
 
+    proc arrPassTest(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+      var sp = sp.stackPtrToUint()
+      extractAs(val, array[4, int32], sp, mem)
+      check val == [10i32, 20, 30, 40]
+
     let
-      env = loadWasmEnv(readFile"hooks.wasm", hostProcs = [wasmHostProc("*", "doThing", "i(ii)", doThing)])
+      env = loadWasmEnv(readFile"hooks.wasm", hostProcs = [
+        wasmHostProc("*", "doThing", "i(ii)", doThing),
+        wasmHostProc("*", "arrPass", "v(i)", arrPassTest)
+        ]
+      )
+
       indirect = env.findFunction("indirectCall", [I32, I32], [])
 
     indirect.call(void, 10i32, 20i32)
