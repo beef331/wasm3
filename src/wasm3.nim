@@ -41,9 +41,6 @@ type
     wasmCopyTo(wa, dest)
 
 
-proc wasmHostProc*(module, name, typ: string, prc: WasmProc): WasmHostProc =
-  WasmHostProc(module: module, name: name, typ: typ, prc: prc)
-
 proc checkWasmRes*(res: Result) {.inline.} =
   if res != nil:
     raise newException(WasmError, $res)
@@ -129,31 +126,18 @@ macro callHost*(p: proc, stackPointer: var uint64, mem: pointer): untyped =
   ## It emits `fromWasm` for each argument, and `ptr ReturnType` for the return value.
   ## It then calls the proc with args and sets the return value.
   let
-    pSym = routineSym(p)
-    pDef = block:
-      var res: RoutineNode
-      for sym in psym.routines:
-        if NimNode(res).isNil:
-          res = sym
-        else:
-          error("Cannot 'callWasm' on an overloaded symbol use some method to specify it", p)
-      res
-    retT = pDef.returnType
-  let hasReturnType = retT.kind != nnkEmpty and not retT.sameType(getType(void))
-
-  result = newStmtList()
-  var call = macros.newCall(p)
-
-  for args in pDef.params:
-    let typ = args.typ
-    for _ in args.names:
-      call.add:
-        genast(stackPointer, typ):
-          let arg = block:
-            var val: typ
-            val.fromWasm(stackPointer, mem)
-            val
-          arg
+    typ = p.getType()
+    retT = typ[1]
+    hasReturnType = not typ[1].getType.sameType(getType(void))
+    call = newCall(p)
+  for typ in typ[2..^1]:
+    call.add:
+      genast(stackPointer, mem, typ = typ.getTypeInst()):
+        let arg = block:
+          var val = default(typeof(typ))
+          val.fromWasm(stackPointer, mem)
+          val
+        arg
   result =
     if hasReturnType:
       genast(retT, call, stackPointer):
@@ -164,6 +148,20 @@ macro callHost*(p: proc, stackPointer: var uint64, mem: pointer): untyped =
         retType[] = call
     else:
       call
+
+proc wasmHostProc*(module, name, typ: string, prc: WasmProc): WasmHostProc =
+  WasmHostProc(module: module, name: name, typ: typ, prc: prc)
+
+macro toWasmHostProc*(p: proc, module, name, typ: string): untyped =
+  genAst(p, modle = module, nam = name, ty = typ):
+    WasmHostProc(
+      module: modle,
+      name: nam,
+      typ: ty,
+      prc: proc (runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+        var sp = sp.stackPtrToUint()
+        callHost(p, sp, mem)
+      )
 
 proc isType*(fnc: PFunction, args, results: openArray[ValueKind]): bool =
   # Returns whether a wasm module's function matches the type signature supplied.

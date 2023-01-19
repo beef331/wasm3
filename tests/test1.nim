@@ -104,15 +104,12 @@ suite "Idiomtic Nim Wrapping":
       proc doStuff(a, b: int32): int32 = a * b
       callHost(doStuff, sp, mem)
 
-    proc arrPassTest(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
-      var sp = sp.stackPtrToUint()
-      proc arrPass(a: array[4, int32]) = check a == [10i32, 20, 30, 40]
-      callHost(arrPass, sp, mem)
+    proc arrPassTest(a: array[4, int32]) = check a == [10i32, 20, 30, 40]
 
     let
       env = loadWasmEnv(readFile"hooks.wasm", hostProcs = [
         wasmHostProc("*", "doThing", "i(ii)", doThing),
-        wasmHostProc("*", "arrPass", "v(i)", arrPassTest)
+        arrPassTest.toWasmHostProc("*", "arrPass", "v(i)")
         ]
       )
       indirect = env.findFunction("indirectCall", [I32, I32], [])
