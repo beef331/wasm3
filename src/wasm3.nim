@@ -95,7 +95,6 @@ proc loadWasmEnv*(
   for i, data in enumerate result.wasmData.mitems:
     data = move wasmData[i]
 
-    result.modules.add default(PModule)
     checkWasmRes m3_ParseModule(result.env, result.modules[^1].addr, cast[ptr uint8](result.wasmData[^1][0].addr), uint32 result.wasmData[^1].len)
     try:
       checkWasmRes m3_LoadModule(result.runtime, result.modules[^1])
