@@ -107,7 +107,7 @@ proc loadWasmEnv*(
 
   for hostProc in hostProcs:
     for module in result.modules:
-      if module.m3GetModuleName == cstring hostProc.module:
+      if hostProc.module == "*" or  module.m3GetModuleName == cstring hostProc.module:
         checkWasmRes m3LinkRawFunction(module, cstring hostProc.module, cstring hostProc.name, cstring hostProc.typ, hostProc.prc)
 
   for module in result.modules:
