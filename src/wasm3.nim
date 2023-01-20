@@ -23,8 +23,8 @@ type
   WasmEnv* = ref object # ref counting is good for the soul
     env: PEnv
     runtime: PRuntime
-    module: PModule
-    wasmData: string # have to keep data alive
+    modules: seq[PModule]
+    wasmData: seq[string]# have to keep data alive
     allocFunc, deallocFunc: PFunction
 
   WasmHostProc* = object
@@ -59,22 +59,60 @@ proc loadWasmEnv*(
   loadAlloc = false
   ): WasmEnv =
   new result
-  result.wasmData = wasmData
+  result.wasmData = @[wasmData]
   result.env = m3_NewEnvironment()
   result.runtime = result.env.m3_NewRuntime(stackSize, nil)
 
-  checkWasmRes m3_ParseModule(result.env, result.module.addr, cast[ptr uint8](result.wasmData[0].addr), uint32 result.wasmData.len)
+  result.modules.add default(PModule)
+  checkWasmRes m3_ParseModule(result.env, result.modules[0].addr, cast[ptr uint8](result.wasmData[0][0].addr), uint32 result.wasmData[0].len)
   try:
-    checkWasmRes m3_LoadModule(result.runtime, result.module)
+    checkWasmRes m3_LoadModule(result.runtime, result.modules[0])
   except WasmError:
-    m3FreeModule(result.module)
+    m3FreeModule(result.modules[0])
     raise
 
   when defined wasm3HasWasi: # Maybe an if statement?
-    checkWasmRes m3LinkWasi(result.module)
+    checkWasmRes m3LinkWasi(result.modules[0])
   for hostProc in hostProcs:
-    checkWasmRes m3LinkRawFunction(result.module, cstring hostProc.module, cstring hostProc.name, cstring hostProc.typ, hostProc.prc)
-  checkWasmRes m3_CompileModule(result.module)
+    checkWasmRes m3LinkRawFunction(result.modules[0], cstring hostProc.module, cstring hostProc.name, cstring hostProc.typ, hostProc.prc)
+  checkWasmRes m3_CompileModule(result.modules[0])
+
+  if loadAlloc:
+    result.allocFunc = result.findFunction("alloc", [I32], [I32])
+    result.deallocFunc = result.findFunction("dealloc", [I32], [])
+
+proc loadWasmEnv*(
+  wasmData: sink openarray[string],
+  stackSize: uint32 = high(uint16),
+  hostProcs: openarray[WasmHostProc] = [],
+  loadAlloc = false
+  ): WasmEnv =
+  new result
+  result.env = m3_NewEnvironment()
+  result.runtime = result.env.m3_NewRuntime(stackSize, nil)
+  result.wasmData.setLen(wasmData.len)
+  result.modules.setLen(wasmData.len)
+  for i, data in enumerate result.wasmData.mitems:
+    data = move wasmData[i]
+
+    result.modules.add default(PModule)
+    checkWasmRes m3_ParseModule(result.env, result.modules[^1].addr, cast[ptr uint8](result.wasmData[^1][0].addr), uint32 result.wasmData[^1].len)
+    try:
+      checkWasmRes m3_LoadModule(result.runtime, result.modules[^1])
+    except WasmError:
+      m3FreeModule(result.modules[^1])
+      raise
+
+    when defined wasm3HasWasi: # Maybe an if statement?
+      checkWasmRes m3LinkWasi(result.modules[^1])
+
+  for hostProc in hostProcs:
+    for module in result.modules:
+      if module.m3GetModuleName == cstring hostProc.module:
+        checkWasmRes m3LinkRawFunction(module, cstring hostProc.module, cstring hostProc.name, cstring hostProc.typ, hostProc.prc)
+
+  for module in result.modules:
+    checkWasmRes m3_CompileModule(module)
 
   if loadAlloc:
     result.allocFunc = result.findFunction("alloc", [I32], [I32])
@@ -184,7 +222,7 @@ proc findFunction*(wasmEnv: WasmEnv, name: string, args, results: openarray[Valu
     raise newException(WasmError, "Function is not the type requested.")
 
 proc findGlobal*(wasmEnv: WasmEnv, name: string): PGlobal =
-  result = m3FindGlobal(wasmEnv.module, cstring name)
+  result = m3FindGlobal(wasmEnv.modules[0], cstring name)
   if result.isNil:
     raise newException(WasmError, "Global named '" & name & "' is not found.")
 
