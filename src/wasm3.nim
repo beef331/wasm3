@@ -152,16 +152,15 @@ macro callHost*(p: proc, stackPointer: var uint64, mem: pointer): untyped =
 proc wasmHostProc*(module, name, typ: string, prc: WasmProc): WasmHostProc =
   WasmHostProc(module: module, name: name, typ: typ, prc: prc)
 
-macro toWasmHostProc*(p: proc, module, name, typ: string): untyped =
-  genAst(p, modle = module, nam = name, ty = typ):
-    WasmHostProc(
-      module: modle,
-      name: nam,
-      typ: ty,
-      prc: proc (runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
-        var sp = sp.stackPtrToUint()
-        callHost(p, sp, mem)
-      )
+proc toWasmHostProc*[T: proc](p: static[T], module, name, typ: string): WasmHostProc =
+  WasmHostProc(
+    module: module,
+    name: name,
+    typ: typ,
+    prc: proc (runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+      var sp = sp.stackPtrToUint()
+      callHost(p, sp, mem)
+    )
 
 proc isType*(fnc: PFunction, args, results: openArray[ValueKind]): bool =
   # Returns whether a wasm module's function matches the type signature supplied.
