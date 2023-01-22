@@ -1,12 +1,32 @@
-import wasm3/[wasm3c, wasmconversions]
+import wasm3/[wasm3c]
 # This stuff here is likely to get moved to another module eventually
-import std/[macros, genasts, typetraits, enumerate, tables]
+import std/[macros, genasts, typetraits, enumerate, tables, strformat]
 import micros
 
-export wasmconversions
+
+const
+  wasm3AllocName {.strdefine.} = "alloc"
+  wasm3DeallocName {.strdefine.} = "dealloc"
 
 type
   WasmError* = object of CatchableError
+
+  WasmEnv* = ref object # ref counting is good for the soul
+    env: PEnv
+    runtime: PRuntime
+    modules: seq[PModule]
+    wasmData: seq[string] # have to keep data alive
+    allocFunc, deallocFunc: PFunction
+
+  WasmHostProc* = object
+    module, name, typ: string
+    prc: WasmProc
+
+  WasmPtr* = distinct uint32
+
+import wasm3/wasmconversions
+export wasmconversions
+
 
 proc wasmValidTuple*(t: typedesc[tuple]): bool =
   result = true
@@ -15,30 +35,12 @@ proc wasmValidTuple*(t: typedesc[tuple]): bool =
       return false
 
 type
-  WasmTuple* = concept wasmt, type WT
+  WasmTuple* = concept type WT
     WT is tuple
     wasmValidTuple(WT)
 
-
-  WasmEnv* = ref object # ref counting is good for the soul
-    env: PEnv
-    runtime: PRuntime
-    modules: seq[PModule]
-    wasmData: seq[string]# have to keep data alive
-    allocFunc, deallocFunc: PFunction
-
-  WasmHostProc* = object
-    module, name, typ: string
-    prc: WasmProc
-
   AllowedWasmType* = WasmTypes or void or WasmTuple
 
-  WasmPtr* = distinct uint32
-
-  WasmAllocatable* = concept wa
-    var dest: ptr uint8
-    wasmSize(wa) is uint32
-    wasmCopyTo(wa, dest)
 
 
 proc checkWasmRes*(res: Result) {.inline.} =
@@ -78,8 +80,8 @@ proc loadWasmEnv*(
   checkWasmRes m3_CompileModule(result.modules[0])
 
   if loadAlloc:
-    result.allocFunc = result.findFunction("alloc", [I32], [I32])
-    result.deallocFunc = result.findFunction("dealloc", [I32], [])
+    result.allocFunc = result.findFunction(wasm3AllocName, [I32], [I32])
+    result.deallocFunc = result.findFunction(wasm3DeallocName, [I32], [])
 
 proc loadWasmEnv*(
   wasmData: sink openarray[string],
@@ -262,3 +264,12 @@ proc copyTo*[T: WasmAllocatable](wasmEnv: WasmEnv, data: T): WasmPtr =
   data.wasmCopyTo(dest)
 
 
+proc alloc*(env: WasmEnv, size: uint32): WasmPtr =
+  if env.allocFunc.isNil:
+    raise newException(WasmError, fmt"Environment's '{wasm3AllocName}' procedure is 'nil'")
+  env.allocFunc.call(WasmPtr, size)
+
+proc dealloc*(env: WasmEnv, thePtr: WasmPtr) =
+  if env.deallocFunc.isNil:
+    raise newException(WasmError, fmt"Environment's '{wasm3DeallocName}' procedure is 'nil'")
+  env.deallocFunc.call(void, thePtr)

@@ -1,10 +1,18 @@
 ## This module implements generic conversions for most of Nim's primitives.
 ## These are used for the `callHost` macro.
 ## One can easily add their own variant for specific types, as it is generally ambiguous how to best handle other types.
+import wasm3
 import std/[enumerate, typetraits]
 
 type
-  WasmTypes* = int32 or uint32 or int64 or uint64 or float32 or float64
+  WasmBultinType = int32 or uint32 or int64 or uint64 or float32 or float64
+
+  WasmBase* = concept type W
+    distinctBase(W) is WasmBultinType
+
+  WasmTypes* = WasmBase or WasmBultinType
+
+  WasmPtr* = distinct int32 # Opaque type to make it less 'low level'
 
   WasmStackDeserialisable* = concept data
     var
@@ -18,6 +26,12 @@ type
       i: int
     fromWasm(data, mem, i) # We arent extracting on the stack, so we only need `mem` and `offset`
     wasmSize(Data) is int # For offsetting on heap.
+
+  WasmAllocatable* = concept wa
+    var env: WasmEnv
+    wasmSize(wa) is uint32
+    wasmAlloc(wa, env)
+
 
 
   SomeNumeric = SomeNumber or enum or bool and not(int or uint) # Do not allow platform specific integers to prevent 32 vs. 64bit issues
