@@ -22,7 +22,5 @@ proc arrCheck2(myArray: HeapArray[MyType]): bool {.wasmExport.} =
     MyType(x: 42, y: false, z: "Bleh"),
     MyType(x: 314159265i32, y: false, z: "Meh")
   ]
-  echo .data.toOpenArray(0, int(myArray.len - 1))
-
   myArray.data.toOpenArray(0, int(myArray.len - 1)) == myArr
 
