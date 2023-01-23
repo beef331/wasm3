@@ -22,8 +22,6 @@ type
     module, name, typ: string
     prc: WasmProc
 
-  WasmPtr* = distinct uint32
-
 import wasm3/wasmconversions
 export wasmconversions
 
@@ -241,19 +239,25 @@ proc getFromMem*(wasmEnv: WasmEnv, T: typedesc, pos: uint32, offset: uint64 = 0)
   copyMem(result.addr, cast[pointer](cast[uint64](thePtr) + cast[uint64](pos) + offset), sizeof(T))
 
 proc setMem*[T](wasmEnv: WasmEnv, val: T, pos: uint32, offset: uint64 = 0) =
+  mixin wasmSize
   var sizeOfMem: uint32
   let thePtr = m3GetMemory(wasmEnv.runtime, addr sizeOfMem, 0)
   if pos + uint32(sizeof(T)) + uint32(offset) > sizeOfMem:
     raise newException(WasmError, "Attempted to write outside of memory bounds")
   copyMem(cast[pointer](cast[uint64](thePtr) + cast[uint64](pos) + offset), val.unsafeAddr, sizeof typeof(val))
 
+proc setMem*[T](wasmEnv: WasmEnv, val: T, pos: WasmPtr, offset: uint64 = 0) =
+  setMem(wasmEnv, val, uint32(pos), offset)
 
-proc copyMem*(wasmEnv: WasmEnv, pos: uint32, p: pointer, len: int) =
+proc copyMem*(wasmEnv: WasmEnv, pos: uint32, p: pointer, len: int, offset = 0u32) =
   var sizeOfMem: uint32
   let thePtr = m3GetMemory(wasmEnv.runtime, addr sizeOfMem, 0)
   if pos + uint32(len) > sizeOfMem:
     raise newException(WasmError, "Attempted to write outside of memory bounds")
-  copyMem(cast[pointer](cast[uint64](thePtr) + cast[uint64](pos)), p, len)
+  copyMem(cast[pointer](cast[uint64](thePtr) + pos.uint64 + offset.uint64), p, len)
+
+proc copyMem*(wasmEnv: WasmEnv, pos: WasmPtr, p: pointer, len: int, offset = 0u32) =
+  copyMem(wasmEnv, uint32 pos, p, len)
 
 proc copyTo*[T: WasmAllocatable](wasmEnv: WasmEnv, data: T): WasmPtr =
   mixin wasmCopyTo, wasmSize
@@ -273,3 +277,12 @@ proc dealloc*(env: WasmEnv, thePtr: WasmPtr) =
   if env.deallocFunc.isNil:
     raise newException(WasmError, fmt"Environment's '{wasm3DeallocName}' procedure is 'nil'")
   env.deallocFunc.call(void, thePtr)
+
+proc alloc*[T: WasmAllocatable](env: WasmEnv, allocatable: T): WasmPtr =
+  mixin wasmAlloc
+  mixin wasmSize
+  const size = wasmSize(T)
+  result = env.alloc(size)
+  wasmAlloc(allocatable, env, result)
+
+
