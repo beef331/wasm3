@@ -189,7 +189,7 @@ macro callHost*(p: proc, stackPointer: var uint64, mem: pointer): untyped =
 proc wasmHostProc*(module, name, typ: string, prc: WasmProc): WasmHostProc =
   WasmHostProc(module: module, name: name, typ: typ, prc: prc)
 
-template toWasmHostProc*[T: proc](p: static[T], modul, nam, ty: string): WasmHostProc =
+template toWasmHostProc*(p: static proc, modul, nam, ty: string): WasmHostProc =
   WasmHostProc(
     module: modul,
     name: nam,
@@ -236,7 +236,7 @@ proc getFromMem*(wasmEnv: WasmEnv, T: typedesc, pos: uint32, offset: uint64 = 0)
   let thePtr = m3GetMemory(wasmEnv.runtime, addr sizeOfMem, 0)
   if pos + uint32(sizeof(T)) + uint32(offset) > sizeOfMem:
     raise newException(WasmError, "Attempted to read outside of memory bounds")
-  copyMem(result.addr, cast[pointer](cast[uint64](thePtr) + cast[uint64](pos) + offset), sizeof(T))
+  copyMem(result.addr, cast[pointer](cast[uint64](thePtr) + uint64(pos) + offset), sizeof(T))
 
 proc setMem*[T](wasmEnv: WasmEnv, val: T, pos: uint32, offset: uint64 = 0) =
   mixin wasmSize
@@ -244,7 +244,7 @@ proc setMem*[T](wasmEnv: WasmEnv, val: T, pos: uint32, offset: uint64 = 0) =
   let thePtr = m3GetMemory(wasmEnv.runtime, addr sizeOfMem, 0)
   if pos + uint32(sizeof(T)) + uint32(offset) > sizeOfMem:
     raise newException(WasmError, "Attempted to write outside of memory bounds")
-  copyMem(cast[pointer](cast[uint64](thePtr) + cast[uint64](pos) + offset), val.unsafeAddr, sizeof typeof(val))
+  copyMem(cast[pointer](cast[uint64](thePtr) + uint64(pos) + offset), val.unsafeAddr, sizeof typeof(val))
 
 proc setMem*[T](wasmEnv: WasmEnv, val: T, pos: WasmPtr, offset: uint64 = 0) =
   setMem(wasmEnv, val, uint32(pos), offset)

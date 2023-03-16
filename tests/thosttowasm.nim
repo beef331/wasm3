@@ -4,11 +4,13 @@ import wasm3/wasm3c
 
 
 type
-  MyType {.wasmSize: uint32(sizeof(int32) + sizeof(bool) + sizeof(cstring)).} = object
+  MyType = object
     x: int32
     y: bool
     z: string
 
+
+proc wasmSize(_: typedesc[MyType]): uint32 = uint32(sizeof(int32) + sizeof(bool) + sizeof(uint32))
 proc wasmSize(_: typedesc[string]): uint32 = uint32 sizeof(uint32)
 
 proc wasmCopy(myString: string, env: WasmEnv, dest: WasmPtr, offset: var uint64) =
@@ -22,7 +24,7 @@ proc wasmCopy(myType: MyType, env: WasmEnv, dest: WasmPtr, offset: var uint64) =
     field.wasmCopy(env, dest, offset) # Copy offsets `offset`
 
 
-proc wasmSize[T](_: typedesc[openArray[T]]): uint32 = uint32 sizeof(uint32)
+proc wasmSize(_: typedesc[array]): uint32 = uint32 sizeof(uint32)
 
 proc wasmAlloc[T](oa: openArray[T], env: WasmEnv, wPtr: WasmPtr) =
   const elemSize = uint32 getWasmSize(typeof(oa[0]))
@@ -36,7 +38,6 @@ proc wasmAlloc[T](oa: openArray[T], env: WasmEnv, wPtr: WasmPtr) =
 
 proc wasmDealloc(wPtr: WasmPtr, env: WasmEnv, _: typedesc[openarray[MyType]]) = discard
 proc wasmDealloc(wPtr: WasmPtr, env: WasmEnv, _: typedesc[string]) = discard
-
 
 suite "Host to Wasm interop":
   test "Ensure basic interfaces work":

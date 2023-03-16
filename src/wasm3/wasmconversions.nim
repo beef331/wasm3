@@ -4,8 +4,6 @@
 import wasm3
 import std/[enumerate, typetraits, macros]
 
-template wasmSize*(size: uint32) {.pragma.}
-
 type
   WasmBultinType = int32 or uint32 or int64 or uint64 or float32 or float64 or WasmPtr or bool
 
@@ -23,7 +21,7 @@ type
     fromWasm(data, stackPointer, mem) # We are extracting on the stack so we only need `stackPointer` and `mem` for any children data
 
   WasmSizeable* = concept type W
-    wasmSize(W)
+    wasmSize(W) is uint32
 
   WasmHeapDeserialisable* = concept data, type Data
     var
@@ -51,16 +49,9 @@ type
 
   SomeNumeric = SomeNumber or enum or bool and not(int or uint) # Do not allow platform specific integers to prevent 32 vs. 64bit issues
 
-proc getWasmSize*(T: typedesc): uint32 =
-  # When the type lacks a `wasmSize` proc check if it has a `{.wasmSize.}`
-  when not compiles(getCustomPragmaVal(T, wasmSize)):
-    {.hint: "No `wasmSize` pragma, or `wasmSize` proc found for type '" & $T & "'.".}
-  getCustomPragmaVal(T, wasmSize)
-
 proc getWasmSize*(T: typedesc[WasmSizeable]): uint32 =
   mixin wasmSize
   wasmSize(T)
-
 
 proc wasmSize*[T: SomeNumeric](_: typedesc[T]): uint32 = uint32 sizeof(T)
 
