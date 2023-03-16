@@ -34,7 +34,9 @@ proc wasmAlloc[T](oa: openArray[T], env: WasmEnv, wPtr: WasmPtr) =
   for element in oa:
     element.wasmCopy(env, dataPtr, offset)
 
-proc wasmDealloc[T: openarray[MyType]](wPtr: WasmPtr, env: WasmEnv) = discard
+proc wasmDealloc(wPtr: WasmPtr, env: WasmEnv, _: typedesc[openarray[MyType]]) = discard
+proc wasmDealloc(wPtr: WasmPtr, env: WasmEnv, _: typedesc[string]) = discard
+
 
 suite "Host to Wasm interop":
   test "Ensure basic interfaces work":

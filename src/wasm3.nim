@@ -189,11 +189,11 @@ macro callHost*(p: proc, stackPointer: var uint64, mem: pointer): untyped =
 proc wasmHostProc*(module, name, typ: string, prc: WasmProc): WasmHostProc =
   WasmHostProc(module: module, name: name, typ: typ, prc: prc)
 
-proc toWasmHostProc*[T: proc](p: static[T], module, name, typ: string): WasmHostProc =
+template toWasmHostProc*[T: proc](p: static[T], modul, nam, ty: string): WasmHostProc =
   WasmHostProc(
-    module: module,
-    name: name,
-    typ: typ,
+    module: modul,
+    name: nam,
+    typ: ty,
     prc: proc (runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
       var sp = sp.stackPtrToUint()
       callHost(p, sp, mem)

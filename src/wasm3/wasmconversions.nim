@@ -39,7 +39,8 @@ type
       wPtr: WasmPtr
     wa is WasmSizeable
     wasmAlloc(wa, env, wPtr)
-    #wasmDealloc[Wa](wPtr, env) # Maybe we should force this?
+    #wasmDealloc(wPtr, env, Wa) # Maybe we should force this?
+
 
   WasmCopyable* = concept wc
     var
