@@ -10,6 +10,41 @@ when defined(wasm3HasWasi):
   {.compile: wasmDir / "m3_api_uvwasi.c".}
   {.compile: wasmDir / "m3_api_meta_wasi.c".}
 
+when defined(wasm3VerboseErrorMessages):
+  {.passC: "-D" & "DEBUG".}
+  {.passC: "-D" & "d_m3VerboseErrorMessages=1".}
+
+when defined(wasm3LogParse):
+  {.passC: "-D" & "DEBUG".}
+  {.passC: "-D" & "d_m3LogParse=1".}
+
+when defined(wasm3LogModule):
+  {.passC: "-D" & "DEBUG".}
+  {.passC: "-D" & "d_m3LogModule=1".}
+
+when defined(wasm3LogCompile):
+  {.passC: "-D" & "DEBUG".}
+  {.passC: "-D" & "d_m3LogCompile=1".}
+
+when defined(wasm3LogWasmStack):
+  {.passC: "-D" & "DEBUG".}
+  {.passC: "-D" & "d_m3LogWasmStack=1".}
+
+when defined(wasm3LogEmit):
+  {.passC: "-D" & "DEBUG".}
+  {.passC: "-D" & "d_m3LogEmit=1".}
+
+when defined(wasm3LogCodePages):
+  {.passC: "-D" & "DEBUG".}
+  {.passC: "-D" & "d_m3LogCodePages=1".}
+
+when defined(wasm3LogRuntime):
+  {.passC: "-D" & "DEBUG".}
+  {.passC: "-D" & "d_m3LogRuntime=1".}
+
+when defined(wasm3LogNativeStack):
+  {.passC: "-D" & "DEBUG".}
+  {.passC: "-D" & "d_m3LogNativeStack=1".}
 
 {.compile: wasmDir / "m3_api_tracer.c".}
 {.compile: wasmDir / "m3_bind.c".}
@@ -22,8 +57,6 @@ when defined(wasm3HasWasi):
 {.compile: wasmDir / "m3_info.c".}
 {.compile: wasmDir / "m3_module.c".}
 {.compile: wasmDir / "m3_parse.c".}
-
-
 
 type
   ValueKind* = enum
