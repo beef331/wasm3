@@ -30,7 +30,7 @@ jobs:
         run: nimble install -y
 
       - name: Build Test Wasm
-        run: nim c wasmsources/maths.nim && nim c wasmsources/hooks.nim && nim c wasmsources/log.nim && nim c wasmsources/hostinterop.nim
+        run: nimble buildWasmSources
             
       - name: Test
         run:  nimble -y test
