@@ -23,7 +23,7 @@ jobs:
       - name: Setup Emscripten
         uses: mymindstorm/setup-emsdk@v11
         with:
-          version: 1.38.40
+          version: 3.1.39
           actions-cache-folder: emsdk-cache-${{ matrix.os }}
 
       - name: Install On System
