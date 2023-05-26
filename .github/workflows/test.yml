@@ -24,7 +24,7 @@ jobs:
         uses: mymindstorm/setup-emsdk@v11
         with:
           version: 3.1.39
-          actions-cache-folder: emsdk-cache-${{ matrix.os }}
+          actions-cache-folder: emsdk-cache-${{ runner.os }}
 
       - name: Install On System
         run: nimble install -y
