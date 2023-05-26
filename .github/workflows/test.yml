@@ -1,0 +1,36 @@
+on:
+  push
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}-latest
+    strategy:
+      matrix:
+        os:
+          - windows
+          - ubuntu
+          - macOS
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      
+      - name: Setup Nim
+        uses: jiro4989/setup-nim-action@v1
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v11
+        with:
+          version: 1.38.40
+          actions-cache-folder: emsdk-cache-${{ matrix.os }}
+
+      - name: Install On System
+        run: nimble install -y
+
+      - name: Build Test Wasm
+        run: nim c wasmsources/maths.nim && nim c wasmsources/hooks.nim && nim c wasmsources/log.nim && nim c wasmsources/hostinterop.nim
+            
+      - name: Test
+        run:  nimble -y test
