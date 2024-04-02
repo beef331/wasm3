@@ -45,7 +45,6 @@ suite "Host to Wasm interop":
       env = loadWasmEnv(readFile"hostinterop.wasm", loadAlloc = true)
       arrCheck1 = env.findFunction("arrCheck1", [I32], [I32])
       arrCheck2 = env.findFunction("arrCheck2", [I32], [I32])
-      getCstring = env.findFunction("returnCstring", [], [I32])
       getCstringArray = env.findFunction("returnCstringArray", [I32], [I32])
       getSizedCstringArray = env.findFunction("returnSizedCstringArray", [I32], [I32])
 
