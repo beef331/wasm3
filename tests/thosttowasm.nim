@@ -45,6 +45,9 @@ suite "Host to Wasm interop":
       env = loadWasmEnv(readFile"hostinterop.wasm", loadAlloc = true)
       arrCheck1 = env.findFunction("arrCheck1", [I32], [I32])
       arrCheck2 = env.findFunction("arrCheck2", [I32], [I32])
+      getCstring = env.findFunction("returnCstring", [], [I32])
+      getCstringArray = env.findFunction("returnCstringArray", [I32], [I32])
+      getSizedCstringArray = env.findFunction("returnSizedCstringArray", [I32], [I32])
 
     const myArr1 = [10i32, 20, 30, 40]
     let arr1Alloc = env.alloc(myArr1)
@@ -60,3 +63,35 @@ suite "Host to Wasm interop":
     let arr2Alloc = env.alloc(myArr2)
 
     check arrCheck2.call(bool, arr2Alloc)
+
+    test "cstring interop":
+      var
+        len = env.alloc(0)
+        theAddr = getCstringArray.call(WasmPtr, len)
+
+      const strs = ["hello", "world", ""]
+
+      for i in 0..<env.getFromMem(int32, uint32(len)):
+        let strStart = env.getFromMem(WasmPtr, uint32 theAddr, uint64 i * sizeof(uint32))
+        var
+          offset = 0u64
+          str = ""
+        while (let val = env.getFromMem(char, uint32 strStart, offset); val != '\0'):
+          str.add val.char
+          inc offset
+        check strs[i] == str
+
+      theAddr = getSizedCstringArray.call(WasmPtr, len)
+
+      for i in 0..<env.getFromMem(int32, uint32(len)):
+        let
+          strPtr = env.getFromMem(int32, uint32 theAddr, uint64 i * (sizeof(uint32) * 2))
+          strLen = env.getFromMem(int32, uint32 theAddr, uint64 i * (sizeof(uint32) * 2) + sizeof(uint32))
+        let str = newString(int strLen)
+        if strLen > 0:
+          env.copyFromMem(uint32 strPtr, str[0].addr, int strLen)
+
+        check str == strs[i]
+
+
+

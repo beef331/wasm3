@@ -24,3 +24,14 @@ proc arrCheck2(myArray: HeapArray[MyType]): bool {.wasmExport.} =
   ]
   myArray.data.toOpenArray(0, int(myArray.len - 1)) == myArr
 
+
+proc returnCstringArray*(len: var int): cstringarray {.wasmexport.} =
+  var arr {.global.} = [cstring"hello", "world", ""] # to do this properly use alloc
+  len = arr.len
+  cast[cstringarray](arr.addr)
+
+
+proc returnSizedCstringArray*(len: var int): ptr UncheckedArray[(cstring, int)] {.wasmexport.} =
+  var arr {.global.} = [(cstring"hello", 5), ("world", 5), ("", 0)] # to do this properly use alloc
+  len = arr.len
+  cast[ptr UncheckedArray[(cstring, int)]](arr.addr)

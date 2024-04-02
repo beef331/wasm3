@@ -1,7 +1,7 @@
 import wasm3/[wasm3c]
 # This stuff here is likely to get moved to another module eventually
 import std/[macros, genasts, typetraits, enumerate, tables, strformat]
-import micros
+import pkg/micros
 
 
 const
@@ -255,6 +255,13 @@ proc copyMem*(wasmEnv: WasmEnv, pos: uint32, p: pointer, len: int, offset = 0u32
   if pos + uint32(len) > sizeOfMem:
     raise newException(WasmError, "Attempted to write outside of memory bounds")
   copyMem(cast[pointer](cast[uint64](thePtr) + pos.uint64 + offset.uint64), p, len)
+
+proc copyFromMem*(wasmEnv: WasmEnv, pos: uint32, p: pointer, len: int, offset = 0u32) =
+  var sizeOfMem: uint32
+  let thePtr = m3GetMemory(wasmEnv.runtime, addr sizeOfMem, 0)
+  if pos + uint32(len) > sizeOfMem:
+    raise newException(WasmError, "Attempted to read outside of memory bounds")
+  copyMem(p, cast[pointer](cast[uint64](thePtr) + pos.uint64 + offset.uint64), len)
 
 proc copyMem*(wasmEnv: WasmEnv, pos: WasmPtr, p: pointer, len: int, offset = 0u32) =
   copyMem(wasmEnv, uint32 pos, p, len)
