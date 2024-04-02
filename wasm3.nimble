@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.1.10"
+version       = "0.1.11"
 author        = "jason"
 description   = "A new awesome nimble package"
 license       = "MIT"
@@ -12,7 +12,7 @@ skipFiles = @["txt", "py", "zig"]
 # Dependencies
 
 requires "nim >= 1.6.6"
-requires "https://github.com/beef331/micros/"
+requires "https://github.com/beef331/micros >= 0.1.16"
 
 
 import std/[strutils, os]
