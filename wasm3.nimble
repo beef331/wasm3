@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.1.11"
+version = "0.1.12"
 author        = "jason"
 description   = "A new awesome nimble package"
 license       = "MIT"
@@ -21,3 +21,4 @@ task buildWasmSources, "Builds all wasmsources and moves them to 'tests'":
   for file in "wasmsources".listFiles:
     if file.endsWith".nim":
       selfExec("c " & file)
+
