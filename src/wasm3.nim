@@ -21,6 +21,7 @@ type
   WasmHostProc* = object
     module, name, typ: string
     prc: WasmProc
+  NimWasmProc* = proc (runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.}
 
 import wasm3/wasmconversions
 export wasmconversions
@@ -188,6 +189,9 @@ macro callHost*(p: proc, stackPointer: var uint64, mem: pointer): untyped =
 
 proc wasmHostProc*(module, name, typ: string, prc: WasmProc): WasmHostProc =
   WasmHostProc(module: module, name: name, typ: typ, prc: prc)
+
+proc wasmHostProc*(module, name, typ: string, prc: NimWasmProc): WasmHostProc =
+  WasmHostProc(module: module, name: name, typ: typ, prc: cast[WasmProc](prc))
 
 template toWasmHostProc*(p: static proc, modul, nam, ty: string): WasmHostProc =
   WasmHostProc(
