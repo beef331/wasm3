@@ -62,28 +62,46 @@ type
   ValueKind* = enum
     None = 0, I32 = 1, I64 = 2, F32 = 3,
     F64 = 4, Unknown
-  WasmVal* {.bycopy.} = object
-    case kind*: ValueKind
-    of I32:
-      i32*: int32
-    of I64:
-      i64*: int64
-    of F32:
-      f32*: float32
-    of F64:
-      f64*: float64
-    else:
-      discard
+
+  WasmValUnion {.union, header: "wasm3.h".} = object
+    i32*: int32
+    i64*: int64
+    f32*: float32
+    f64*: float64
+
+
+
+  WasmVal* {.bycopy, importc: "struct M3TaggedValue".} = object
+    kind* {.importc: "type".}: ValueKind
+    value: WasmValUnion
+
+template accessor(name: untyped, knd: ValueKind, typ: typedesc): untyped =
+  proc name*(wasmVal: WasmVal): typ =
+    assert wasmVal.kind == knd
+    wasmVal.value.name
+
+  proc name*(wasmVal: var WasmVal): var typ =
+    assert wasmVal.kind == knd
+    wasmVal.value.name
+
+  proc `name=`(wasmVal: var WasmVal, val: typ) =
+    assert wasmVal.kind == knd
+    wasmVal.value.name = val
+
+accessor(i32, I32, int32)
+accessor(i64, I64, int64)
+accessor(f32, F32, float32)
+accessor(f64, F64, float64)
 
 
 {. push header: "wasm3.h".}
 type
   Result* = cstring
 
-  Environment* = object
-  Runtime* = object
-  Module* = object
-  Function* = object
+  Environment* {.bycopy, importc: "struct M3Environment".} = object
+  Runtime* {.bycopy, importc: "struct M3Runtime".} = object
+  Module* {.bycopy, importc: "struct M3Module".} = object
+  Function* {.bycopy, importc: "struct M3Function".} = object
 
   PEnv* = ptr Environment
 
@@ -93,7 +111,7 @@ type
 
   PFunction* = ptr Function
 
-  Global* = object
+  Global* {.bycopy, importc:"struct M3Global".} = object
   PGlobal* = ptr Global
   ErrorInfo* {.bycopy.} = object
     result*: Result
@@ -126,8 +144,11 @@ type
     userdata*: pointer
     function*: PFunction
 
+  PConstVoid* {.importc: "const void*".} = object 
+  ConstvoidStar* = ptr PConstVoid
+
   PImportContext* = ptr ImportContext
-  WasmProc* = proc (runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.}
+  WasmProc* = proc (runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): PConstVoid {.cdecl.}
   M3SectionHandler* = proc (i_module: PModule; name: cstring; start: ptr uint8; `end`: ptr uint8): Result {.cdecl.}
 
 const
@@ -181,7 +202,7 @@ const
   trapUnreachable*{.importc: "m3Err_trapUnreachable".}: Result = ""
   trapStackOverflow* {.importc: "m3Err_trapStackOverflow".}: Result = ""
 
-{.push importc.}
+{.push importc, cdecl.}
 
 proc m3_NewEnvironment*(): PEnv
 proc m3_FreeEnvironment*(i_environment: PEnv)
@@ -226,11 +247,11 @@ proc m3_GetArgType*(i_function: PFunction; i_index: uint32): ValueKind
 proc m3_GetRetType*(i_function: PFunction; i_index: uint32): ValueKind
 proc m3_CallV*(i_function: PFunction): Result {.varargs.}
 #proc m3_CallVL*(i_function: PFunction; i_args: va_list): Result
-proc m3_Call*(i_function: PFunction; i_argc: uint32; i_argptrs: ptr pointer): Result
+proc m3_Call*(i_function: PFunction; i_argc: uint32; i_argptrs: ConstVoidStar): Result
 proc m3_CallArgv*(i_function: PFunction; i_argc: uint32; i_argv: ptr cstring): Result
 proc m3_GetResultsV*(i_function: PFunction): Result {.varargs.}
 #proc m3_GetResultsVL*(i_function: PFunction; o_rets: va_list): Result
-proc m3_GetResults*(i_function: PFunction; i_retc: uint32; o_retptrs: ptr pointer): Result
+proc m3_GetResults*(i_function: PFunction; i_retc: uint32; o_retptrs: ConstVoidStar): Result
 proc m3_GetErrorInfo*(i_runtime: PRuntime; o_info: ptr ErrorInfo)
 proc m3_ResetErrorInfo*(i_runtime: PRuntime)
 proc m3_GetFunctionName*(i_function: PFunction): cstring

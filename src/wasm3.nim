@@ -131,7 +131,7 @@ template getResult*[T: WasmTuple or WasmTypes](theFunc: PFunction): untyped =
     var
       res: T
       ptrArray = res.ptrArrayTo
-    checkWasmRes m3_GetResults(theFunc, uint32 ptrArray.len, cast[ptr pointer](ptrArray.addr))
+    checkWasmRes m3_GetResults(theFunc, uint32 ptrArray.len, cast[ConstVoidStar](ptrArray.addr))
     res
 
 macro call*(theFunc: PFunction, returnType: typedesc[WasmTuple or WasmTypes or void],  args: varargs[typed]): untyped =
@@ -150,7 +150,7 @@ macro call*(theFunc: PFunction, returnType: typedesc[WasmTuple or WasmTypes or v
     result.add:
       genast(returnType, theFunc, arrVals, callProc = bindsym"m3_Call"):
         var arrVal = arrVals
-        checkWasmRes callProc(theFunc, uint32 len arrVal, cast[ptr pointer](arrVal.addr))
+        checkWasmRes callProc(theFunc, uint32 len arrVal, cast[ConstVoidStar](arrVal.addr))
         getResult[returnType](theFunc)
   else:
     result.add:
@@ -194,7 +194,7 @@ template toWasmHostProc*(p: static proc, modul, nam, ty: string): WasmHostProc =
     module: modul,
     name: nam,
     typ: ty,
-    prc: proc (runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+    prc: proc (runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): PConstVoid {.cdecl.} =
       var sp = sp.stackPtrToUint()
       callHost(p, sp, mem)
     )

@@ -36,12 +36,12 @@ suite "Raw C wrapping":
       runtime = env.m3_NewRuntime(uint16.high.uint32, nil)
       module: PModule
 
-    proc doThing(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+    proc doThing(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): PConstVoid {.cdecl.} =
       var sp = sp.stackPtrToUint
       proc doStuff(a, b: int32): int32 = a * b
       callHost(doStuff, sp, mem)
 
-    proc arrPassTest(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+    proc arrPassTest(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): PConstVoid {.cdecl.} =
       var sp = sp.stackPtrToUint()
       proc arrPass(a: array[4, int32]) = check a == [10i32, 20, 30, 40]
       callHost(arrPass, sp, mem)
@@ -99,7 +99,7 @@ suite "Idiomtic Nim Wrapping":
       w: float32
 
 
-    proc doThing(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+    proc doThing(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): PConstVoid {.cdecl.} =
       var sp = sp.stackPtrToUint()
       proc doStuff(a, b: int32): int32 = a * b
       callHost(doStuff, sp, mem)
@@ -133,14 +133,14 @@ suite "Idiomtic Nim Wrapping":
       w: float32
 
 
-    proc doThing(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+    proc doThing(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): PConstVoid {.cdecl.} =
       var sp = sp.stackPtrToUint()
       extractAs(res, ptr int32, sp, mem)
       extractAs(a, int32, sp, mem)
       extractAs(b, int32, sp, mem)
       res[] = a * b
 
-    proc arrPassTest(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+    proc arrPassTest(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): PConstVoid {.cdecl.} =
       var sp = sp.stackPtrToUint()
       extractAs(val, array[4, int32], sp, mem)
       check val == [10i32, 20, 30, 40]
@@ -167,7 +167,7 @@ suite "Idiomtic Nim Wrapping":
 
   test "Setup log hook function and call it":
 
-    proc logProc(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+    proc logProc(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): PConstVoid {.cdecl.} =
       var sp = sp.stackPtrToUint()
       extractAs(msg, cstring, sp, mem)
       echo msg
@@ -180,7 +180,7 @@ suite "Idiomtic Nim Wrapping":
   test "Setup log hook function and call it, using callHost":
 
 
-    proc logProc(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): pointer {.cdecl.} =
+    proc logProc(runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer):  PConstVoid {.cdecl.} =
       proc logProcImpl(c: cstring) =
         echo c
       var sp = sp.stackPtrToUint()
