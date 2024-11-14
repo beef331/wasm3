@@ -125,7 +125,7 @@ proc ptrArrayTo*(t: var WasmTuple): auto =
  for i, x in enumerate t.fields:
    result[i] = pointer(x.addr)
 
-template getResult*[T: WasmTuple or WasmTypes](theFunc: PFunction): untyped =
+template getResult*[T: WasmTuple or WasmTypes or void](theFunc: PFunction): untyped =
   when T is void:
     discard
   else:
