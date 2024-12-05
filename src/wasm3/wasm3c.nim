@@ -95,6 +95,7 @@ accessor(f64, F64, float64)
 
 
 {. push header: "wasm3.h".}
+{. push header: "m3_env.h".}
 type
   Result* = cstring
 
