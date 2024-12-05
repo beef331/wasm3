@@ -58,6 +58,10 @@ when defined(wasm3LogNativeStack):
 {.compile: wasmDir / "m3_module.c".}
 {.compile: wasmDir / "m3_parse.c".}
 
+
+when compileOption("mm", "refc"):
+  {.emit: "/*INCLUDESECTION*/\n#include \"m3_env.h\"".}
+
 type
   ValueKind* = enum
     None = 0, I32 = 1, I64 = 2, F32 = 3,
@@ -151,7 +155,7 @@ type
   WasmProc* = proc (runtime: PRuntime; ctx: PImportContext; sp: ptr uint64; mem: pointer): PConstVoid {.cdecl.}
   M3SectionHandler* = proc (i_module: PModule; name: cstring; start: ptr uint8; `end`: ptr uint8): Result {.cdecl.}
 
-const
+let
   none* {.importc: "m3Err_none".} : Result = ""
   mallocFailed* {.importc: "m3Err_mallocFailed".} : Result = ""
   incompatibleWasmVersion* {.importc: "m3Err_incompatibleWasmVersion".} : Result = ""
