@@ -1,14 +1,24 @@
-import std/os
+import std/private/globs
+when defined(mingw):
+  import std/paths except `/`
+  from std/private/ospaths2 import joinPath
+  func `/`*(head, tail: Path): Path {.inline.} =
+    joinPath(head.string, tail.string).nativeToUnixPath.Path
+  {.passC: "-I/usr/x86_64-w64-mingw32/include".}
+  {.passC: "-isystem src/wasm3/"}
+else:
+  import std/paths
 
-const wasmDir = currentSourcePath().parentDir() / "/wasm3c/source/"
-{.passC: "-I" & wasmDir.}
+const wasmDir = currentSourcePath().Path.parentDir().string.nativeToUnixPath.Path / Path"wasm3c" / Path"source"
+{.passC: "-I" & wasmDir.string.}
+
 
 when defined(wasm3HasWasi):
   {.passC: "-D" & "d_m3HasWASI".}
-  {.compile: wasmDir / "m3_api_libc.c".}
-  {.compile: wasmDir / "m3_api_wasi.c".}
-  {.compile: wasmDir / "m3_api_uvwasi.c".}
-  {.compile: wasmDir / "m3_api_meta_wasi.c".}
+  {.compile: string(wasmDir / Path"m3_api_libc.c").}
+  {.compile: string(wasmDir / Path"m3_api_wasi.c").}
+  {.compile: string(wasmDir / Path"m3_api_uvwasi.c").}
+  {.compile: string(wasmDir / Path"m3_api_meta_wasi.c").}
 
 when defined(wasm3VerboseErrorMessages):
   {.passC: "-D" & "DEBUG".}
@@ -46,17 +56,17 @@ when defined(wasm3LogNativeStack):
   {.passC: "-D" & "DEBUG".}
   {.passC: "-D" & "d_m3LogNativeStack=1".}
 
-{.compile: wasmDir / "m3_api_tracer.c".}
-{.compile: wasmDir / "m3_bind.c".}
-{.compile: wasmDir / "m3_code.c".}
-{.compile: wasmDir / "m3_compile.c".}
-{.compile: wasmDir / "m3_core.c".}
-{.compile: wasmDir / "m3_env.c".}
-{.compile: wasmDir / "m3_exec.c".}
-{.compile: wasmDir / "m3_function.c".}
-{.compile: wasmDir / "m3_info.c".}
-{.compile: wasmDir / "m3_module.c".}
-{.compile: wasmDir / "m3_parse.c".}
+{.compile: string(wasmDir / Path"m3_api_tracer.c").}
+{.compile: string(wasmDir / Path"m3_bind.c").}
+{.compile: string(wasmDir / Path"m3_code.c").}
+{.compile: string(wasmDir / Path"m3_compile.c").}
+{.compile: string(wasmDir / Path"m3_core.c").}
+{.compile: string(wasmDir / Path"m3_env.c").}
+{.compile: string(wasmDir / Path"m3_exec.c").}
+{.compile: string(wasmDir / Path"m3_function.c").}
+{.compile: string(wasmDir / Path"m3_info.c").}
+{.compile: string(wasmDir / Path"m3_module.c").}
+{.compile: string(wasmDir / Path"m3_parse.c").}
 
 
 when compileOption("mm", "refc"):

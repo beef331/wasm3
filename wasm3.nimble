@@ -9,6 +9,7 @@ srcDir        = "src"
 skipDirs = @["platforms", "docs", "test"]
 skipFiles = @["txt", "py", "zig"]
 
+
 # Dependencies
 
 requires "nim >= 1.6.6"
@@ -21,4 +22,7 @@ task buildWasmSources, "Builds all wasmsources and moves them to 'tests'":
   for file in "wasmsources".listFiles:
     if file.endsWith".nim":
       selfExec("c " & file)
+
+after install:
+  exec("git apply ./wasm3/wasm3.patch")
 
