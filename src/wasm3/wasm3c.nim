@@ -9,7 +9,12 @@ when defined(mingw):
 else:
   import std/paths
 
-const wasmDir = currentSourcePath().Path.parentDir().string.nativeToUnixPath.Path / Path"wasm3c" / Path"source"
+const wasmDir =
+  when defined(mingw):
+    currentSourcePath().Path.parentDir().string.nativeToUnixPath.Path / Path"wasm3c" / Path"source"
+  else:
+    currentSourcePath().Path.parentDir() / Path"wasm3c" / Path"source"
+
 {.passC: "-I" & wasmDir.string.}
 
 
