@@ -1,6 +1,6 @@
 # Package
 
-version = "0.1.17"
+version = "0.1.18"
 author        = "jason"
 description   = "A new awesome nimble package"
 license       = "MIT"
@@ -25,4 +25,5 @@ task buildWasmSources, "Builds all wasmsources and moves them to 'tests'":
 
 after install:
   exec("git apply ./wasm3/wasm3.patch")
+
 
